@@ -8,14 +8,17 @@ import { createClient } from "@supabase/supabase-js";
 
 const {
   NEXT_PUBLIC_SUPABASE_URL: url,
-  SUPABASE_SERVICE_ROLE_KEY: serviceKey,
+  SUPABASE_SERVICE_ROLE_KEY,
+  SUPABASE_SECRET_KEY,
   DEMO_EMAIL: email,
   DEMO_PASSWORD: password,
   DEMO_REFERENCE_DATE: referenceDate = "2026-11-16",
 } = process.env;
+// Newer Supabase key names (sb_secret_… / sb_publishable_…) and legacy JWT keys both work.
+const serviceKey = SUPABASE_SECRET_KEY ?? SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !serviceKey || !email || !password) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DEMO_EMAIL or DEMO_PASSWORD in .env.local");
+  console.error("Missing NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY), DEMO_EMAIL or DEMO_PASSWORD in .env.local");
   process.exit(1);
 }
 if (!/^\d{4}-\d{2}-\d{2}$/.test(referenceDate)) {

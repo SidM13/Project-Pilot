@@ -110,6 +110,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+@media print {
+  @page { margin: 18mm 16mm; }
+  body { background: #fff; font-size: 12px; }
+  [data-sonner-toaster] { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

@@ -1,6 +1,8 @@
 import "server-only";
 import { z } from "zod";
-import { getActiveMembership, requireUser } from "@/lib/data/workspace";
+import { analyzeWorkspace } from "@/lib/engine";
+import { recordRiskSnapshots } from "@/lib/data/risk-history";
+import { getActiveMembership, loadWorkspaceSnapshot, requireUser } from "@/lib/data/workspace";
 import { createClient, type ServerClient } from "@/lib/supabase/server";
 import { fieldErrors } from "@/lib/validation";
 
@@ -69,4 +71,8 @@ export async function logActivity(
   });
   // The change itself succeeded; a missing audit row is logged, not surfaced.
   if (error) console.error("[activity]", error);
+  // Every logged change may alter calculated risk; record it if it did.
+  // Uncached: the cached snapshot may predate this request's writes.
+  const { workspace } = await getActiveMembership();
+  await recordRiskSnapshots(ctx.workspaceId, analyzeWorkspace(await loadWorkspaceSnapshot(workspace)));
 }

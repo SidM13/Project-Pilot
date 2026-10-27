@@ -2,6 +2,8 @@ import type { Milestone, Project, Task, WorkspaceSnapshot } from "@/lib/types";
 import { addDays, todayISO } from "./dates";
 import { computeLoads, loadWindow, type LoadWindow, type MemberLoad } from "./capacity";
 import { computeCost, type CostMetrics } from "./cost";
+import { blockerImpact, forecast, type DateForecast, type Forecast, type ForecastInput } from "./forecast";
+import { buildGraph, reachable } from "./graph";
 import { buildDecisions, type Decision } from "./decisions";
 import { buildFindings, type Finding, type ProjectFacts } from "./findings";
 import { computeHealth, type HealthResult } from "./health";
@@ -14,6 +16,8 @@ export const CRITICAL_DEADLINE_DAYS = 14;
 
 export interface ProjectAnalysis {
   project: Project;
+  /** Capacity forecast of the project's finish (null fields when nothing is open). */
+  forecastFinish: DateForecast | null;
   facts: ProjectFacts;
   progress: ProgressMetrics;
   schedule: ScheduleMetrics;
@@ -33,6 +37,7 @@ export interface Deadline {
 
 export interface WorkspaceAnalysis {
   referenceDate: string;
+  forecast: Forecast;
   window: LoadWindow;
   projects: ProjectAnalysis[];
   loads: MemberLoad[];
@@ -62,12 +67,29 @@ export function analyzeWorkspace(snapshot: WorkspaceSnapshot, referenceDate = ge
   const { workspace } = snapshot;
   const live = snapshot.projects.filter(isLiveProject);
   const liveIds = new Set(live.map((p) => p.id));
-  const liveTasks = snapshot.tasks.filter((t) => liveIds.has(t.project_id));
+  const liveTasks = snapshot.tasks.filter((t) => liveIds.has(t.project_id) && !t.deferred_at);
   const members = new Map(snapshot.members.map((m) => [m.id, m]));
   const window = loadWindow(referenceDate);
   const loads = computeLoads(liveTasks, snapshot.members, workspace, window);
   const loadMap = new Map(loads.map((l) => [l.memberId, l]));
-  const ctx = { referenceDate, workspace, members, loads: loadMap, window };
+  const forecastInput = {
+    workspace,
+    members: snapshot.members,
+    projects: live,
+    milestones: snapshot.milestones.filter((m) => liveIds.has(m.project_id)),
+    tasks: liveTasks,
+    dependencies: snapshot.dependencies.filter((d) => liveIds.has(d.project_id)),
+  };
+  const plan = forecast(forecastInput, referenceDate);
+  const blockerImpacts = new Map(
+    liveTasks
+      .filter((t) => t.status === "blocked")
+      .flatMap((t) => {
+        const milestoneId = affectedMilestoneId(t, forecastInput);
+        return milestoneId ? [[t.id, blockerImpact(forecastInput, referenceDate, t.id, milestoneId)] as const] : [];
+      }),
+  );
+  const ctx = { referenceDate, workspace, members, loads: loadMap, window, forecast: plan, blockerImpacts };
 
   const projects = live.map((project): ProjectAnalysis => {
     const facts: ProjectFacts = {
@@ -81,7 +103,7 @@ export function analyzeWorkspace(snapshot: WorkspaceSnapshot, referenceDate = ge
     const schedule = computeSchedule(project, progress, referenceDate);
     const cost = computeCost(project, facts.tasks, facts.budgetEntries, members, workspace);
     const findings = buildFindings(facts, ctx, schedule, cost);
-    return { project, facts, progress, schedule, cost, findings, health: computeHealth(findings) };
+    return { project, forecastFinish: plan.projects.get(project.id) ?? null, facts, progress, schedule, cost, findings, health: computeHealth(findings) };
   });
 
   const decisions = buildDecisions(
@@ -96,6 +118,7 @@ export function analyzeWorkspace(snapshot: WorkspaceSnapshot, referenceDate = ge
 
   return {
     referenceDate,
+    forecast: plan,
     window,
     projects,
     loads,
@@ -126,13 +149,21 @@ export function analyzeProject(snapshot: WorkspaceSnapshot, projectId: string, r
   return { ...analysis, project };
 }
 
+/** The earliest-due open milestone that a blocked task (or anything downstream of it) belongs to. */
+function affectedMilestoneId(task: Task, input: ForecastInput): string | null {
+  const downstream = reachable(buildGraph(input.dependencies).downstream, task.id);
+  const ids = new Set([task.milestone_id, ...input.tasks.filter((t) => downstream.has(t.id)).map((t) => t.milestone_id)]);
+  const m = input.milestones.filter((x) => !x.completed_at && ids.has(x.id)).sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+  return m?.id ?? null;
+}
+
 /** Open milestones and open critical tasks due within CRITICAL_DEADLINE_DAYS of the reference date. */
 function upcomingDeadlines(projects: ProjectAnalysis[], ref: string): Deadline[] {
   const until = addDays(ref, CRITICAL_DEADLINE_DAYS);
   const inRange = (d: string | null): d is string => !!d && d >= ref && d <= until;
   const out: Deadline[] = [];
   for (const p of projects) {
-    const riskyMilestones = new Set(p.findings.filter((f) => f.rule === "milestone_at_risk" || f.rule === "blocked_task").flatMap((f) => f.milestoneIds));
+    const riskyMilestones = new Set(p.findings.filter((f) => f.rule === "milestone_at_risk" || f.rule === "milestone_forecast_late" || f.rule === "blocked_task").flatMap((f) => f.milestoneIds));
     const riskyTasks = new Set(p.findings.flatMap((f) => f.taskIds));
     p.facts.milestones
       .filter((m: Milestone) => !m.completed_at && inRange(m.due_date))
@@ -148,3 +179,4 @@ export type { Decision } from "./decisions";
 export type { Finding, Severity, Evidence, Impact } from "./findings";
 export type { HealthStatus } from "./health";
 export type { MemberLoad } from "./capacity";
+export type { Forecast, TaskForecast, DateForecast } from "./forecast";

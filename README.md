@@ -8,14 +8,23 @@ Decision intelligence for project leads at consulting and professional-services 
 - Architecture, stages and known limitations: [`docs/architecture.md`](docs/architecture.md)
 - Conventions for contributors and coding agents: [`CLAUDE.md`](CLAUDE.md)
 
-## Setup
+## Quick start (local demo — no database)
 
-Requirements: Node 22+, a Supabase project (free tier is fine).
+```bash
+npm install
+cp .env.local.example .env.local   # optional: add GEMINI_API_KEY and GEMINI_MODEL for AI explanations
+npm run build && npm start         # or npm run dev
+```
+Open http://localhost:3000 → **Open demo workspace**. The app runs on fictional, internally consistent demonstration data held in memory (labelled throughout the UI); it resets when the server restarts. Everything except multi-user accounts works in this mode.
+
+## Setup (database mode)
+
+Requirements: Node 22+, a Supabase project (free tier is fine). Set `PROJECTPILOT_DATA_MODE=supabase`.
 
 1. **Install** — `npm install`
 2. **Configure** — `cp .env.local.example .env.local` and fill in, from Supabase → Project Settings:
-   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (API)
-   - `SUPABASE_SERVICE_ROLE_KEY` (API — used only by `scripts/`, never by the app)
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (API Keys; legacy `…_ANON_KEY` also accepted)
+   - `SUPABASE_SECRET_KEY` (API Keys — used only by `scripts/`, never by the app; legacy `SUPABASE_SERVICE_ROLE_KEY` also accepted)
    - `SUPABASE_DB_URL` (Database → connection string, session pooler URI)
    - `DEMO_EMAIL`, `DEMO_PASSWORD` (any values; the setup script creates this user)
 3. **Auth settings** — Authentication → Providers → Email: for a local prototype, turn off "Confirm email" so sign-ups land straight in the app.

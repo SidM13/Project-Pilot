@@ -4,9 +4,18 @@
 // Usage: npm run verify:security
 import { createClient } from "@supabase/supabase-js";
 
-const { NEXT_PUBLIC_SUPABASE_URL: url, NEXT_PUBLIC_SUPABASE_ANON_KEY: anonKey, SUPABASE_SERVICE_ROLE_KEY: serviceKey } = process.env;
+const {
+  NEXT_PUBLIC_SUPABASE_URL: url,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  SUPABASE_SERVICE_ROLE_KEY,
+  SUPABASE_SECRET_KEY,
+} = process.env;
+// Newer Supabase key names (sb_secret_… / sb_publishable_…) and legacy JWT keys both work.
+const serviceKey = SUPABASE_SECRET_KEY ?? SUPABASE_SERVICE_ROLE_KEY;
+const anonKey = NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? NEXT_PUBLIC_SUPABASE_ANON_KEY;
 if (!url || !anonKey || !serviceKey) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY");
+  console.error("Missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or SUPABASE_SECRET_KEY");
   process.exit(1);
 }
 
@@ -86,6 +95,39 @@ try {
 
   const { data: doneTask } = await a.from("tasks").update({ status: "done", remaining_hours: 5 }).eq("id", t1).select("completed_at, remaining_hours").single();
   check("Completing a task sets completed_at and zeroes remaining hours", !!doneTask?.completed_at && Number(doneTask.remaining_hours) === 0);
+
+  // ── Simulations (Stage 3) ──
+  const simRow = { workspace_id: wsA, project_id: projA.id, name: "What-if", kind: "scope", scenario: { kind: "scope", taskIds: [t2] }, result: {}, reference_date: "2026-11-16" };
+  const { data: sim, error: simErr } = await a.from("simulations").insert(simRow).select("id").single();
+  check("A can save a draft simulation", !simErr, simErr?.message);
+  const { data: simSeen } = await b.from("simulations").select("id").eq("id", sim?.id ?? "00000000-0000-0000-0000-000000000000");
+  check("B cannot read A's simulations", simSeen?.length === 0);
+  const { error: applyErr } = await a.from("simulations").update({ status: "applied", applied_at: new Date().toISOString(), applied_by: created[0] }).eq("id", sim?.id);
+  check("A can mark a draft applied", !applyErr, applyErr?.message);
+  const { data: reopened } = await a.from("simulations").update({ status: "draft", applied_at: null, applied_by: null }).eq("id", sim?.id).select("id");
+  check("Applied simulations cannot be edited", (reopened?.length ?? 0) === 0);
+  const { data: deletedApplied } = await a.from("simulations").delete().eq("id", sim?.id).select("id");
+  check("Applied simulations cannot be deleted", (deletedApplied?.length ?? 0) === 0);
+
+  // ── AI layer (Stage 4) ──
+  const { data: brief, error: briefErr } = await a.from("decision_briefs").insert({ workspace_id: wsA, project_id: projA.id, title: "Brief", facts: {}, narrative: {}, ai_meta: {} }).select("id").single();
+  check("A can create a brief", !briefErr, briefErr?.message);
+  const { data: briefSeen } = await b.from("decision_briefs").select("id").eq("id", brief?.id ?? "00000000-0000-0000-0000-000000000000");
+  check("B cannot read A's briefs", briefSeen?.length === 0);
+  const { error: cacheErr } = await b.from("ai_explanations").insert({ workspace_id: wsA, project_id: projA.id, kind: "brief", input_hash: "0".repeat(64), model: "m", prompt_version: "v", output: {} });
+  check("B cannot write AI cache entries into A's workspace", !!cacheErr, "insert succeeded");
+
+  // ── Hardening (0006) ──
+  const { error: demoFlagErr } = await a.from("workspaces").update({ is_demo: true }).eq("id", wsA);
+  check("Members cannot mark a workspace as demo", !!demoFlagErr, "update succeeded");
+  const { error: renameErr } = await a.from("workspaces").update({ name: "RLS check A renamed" }).eq("id", wsA);
+  check("Members can still rename their workspace", !renameErr, renameErr?.message);
+  const { error: factsErr } = await a.from("decision_briefs").update({ facts: { tampered: true } }).eq("id", brief?.id);
+  check("Brief facts cannot be edited", !!factsErr, "update succeeded");
+  const { error: narrErr } = await a.from("decision_briefs").update({ narrative: { executiveSummary: "Edited" } }).eq("id", brief?.id);
+  check("Brief narrative can be edited", !narrErr, narrErr?.message);
+  const { error: actErr } = await a.from("activity_events").update({ summary: "rewritten" }).eq("workspace_id", wsA);
+  check("Activity history cannot be rewritten", !!actErr, "update succeeded");
 
   const { error: anonErr, data: anonRows } = await createClient(url, anonKey, { auth: { persistSession: false } }).from("projects").select("id");
   check("Signed-out requests see no rows", !anonErr ? anonRows.length === 0 : true);

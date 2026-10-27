@@ -6,14 +6,22 @@ Decision-intelligence workspace for PMs/ops leads at small consulting and profes
 Product plan and stage status: `docs/architecture.md`. Calculation rules: `docs/calculations.md`.
 
 ## Stack
-Next.js 16 App Router (Cache Components on), TypeScript strict, Tailwind v4, shadcn/ui (radix), Supabase (Postgres + Auth + RLS), Zod, Vitest. npm. Gemini arrives in Stage 4 behind `src/lib/ai` (provider abstraction). Never add the Claude/Anthropic API to the app.
+Next.js 16 App Router (Cache Components on), TypeScript strict, Tailwind v4, shadcn/ui (radix), Supabase (Postgres + Auth + RLS), Zod, Vitest. npm. Gemini (REST, no SDK) behind `src/lib/ai` (provider abstraction in `types.ts`, server-only config in `index.ts`). Never add the Claude/Anthropic API to the app.
 
 ## Non-negotiable rules
 - **Numbers come from the engine, never from AI.** `src/lib/engine/*` is pure TypeScript: no I/O, no `Date.now()`. "Today" is only ever `getReferenceDate(workspace)` passed in as `referenceDate`.
-- **Three layers stay visibly separate in the UI:** Facts (DB records) → Calculated findings (engine) → AI text (Stage 4, labelled as such).
+- **Three layers stay visibly separate in the UI:** Facts (DB records) → Calculated findings (engine) → AI text (labelled "AI draft").
+- AI calls go through `runGrounded()` (`src/lib/ai/service.ts`): cache → hourly limit → model → Zod → `findUngroundedFigures` → cache. The model receives only engine-built context (`lib/ai/grounding.ts`, `lib/briefs/facts.ts`) and has no write path. Bump `PROMPT_VERSION` when prompts or schemas change.
+- The capacity forecast (`engine/forecast.ts`) is the single source of finish dates; findings and (Stage 3) simulations must use it rather than ad-hoc date math.
 - Every new rule or threshold goes in `docs/calculations.md` and gets a test in `src/lib/engine/__tests__/`.
-- Simulations (Stage 3) operate on a cloned `WorkspaceSnapshot`; the only write path is an explicit user-approved server action.
+- Simulations (`engine/simulate.ts`) run on a `structuredClone` of the snapshot; the only write path is `applySimulation` in `src/actions/simulations.ts`, which re-validates and re-simulates server-side after explicit approval.
+- Deferred tasks (`deferred_at`) are excluded in `analyzeWorkspace`; never delete tasks for scope reduction.
+- After writes in the same request, load data with `loadWorkspaceSnapshot` (uncached), not the cached `getWorkspaceSnapshot`.
 - No dead UI: a nav item, button or chart ships only when it works. Hide unfinished sections (`src/components/layout/nav-items.ts`).
+
+## Data modes
+- `PROJECTPILOT_DATA_MODE=demo` (default): `createClient()` returns the in-memory demo client (`src/lib/demo/client.ts`). If you use a new query-builder method or table behaviour in app code, add it to the demo client/store and `src/lib/demo/__tests__`.
+- Demo data has one source: `src/lib/demo/dataset.ts` (engine tests use it with readable ids; the store with stable UUIDs). `0002_demo_seed.sql` mirrors it for database mode.
 
 ## Data & security
 - Tenancy = workspace. Every table has `workspace_id`; child rows use composite FKs `(parent_id, workspace_id)` so cross-workspace links are impossible.

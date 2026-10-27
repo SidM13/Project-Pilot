@@ -39,7 +39,9 @@ export const taskSchema = z
       .union([z.literal(""), hours("Remaining hours")])
       .transform((v) => (v === "" ? null : v)),
     blocked_reason: z.string().trim().max(1000),
+    blocked_until: optionalDate,
   })
+  .transform((t) => (t.status === "blocked" ? t : { ...t, blocked_until: null }))
   .refine((t) => !t.start_date || !t.due_date || t.due_date >= t.start_date, {
     message: "Due date must be on or after the start date",
     path: ["due_date"],
@@ -78,6 +80,18 @@ export const teamMemberSchema = z.object({
   active: z.boolean(),
 });
 
+export const scenarioSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("reassign"), taskId: z.uuid(), toMemberId: z.uuid() }),
+  z.object({ kind: z.literal("deadline"), target: z.enum(["project", "milestone"]), targetId: z.uuid(), newDate: isoDate }),
+  z.object({ kind: z.literal("scope"), taskIds: z.array(z.uuid()).min(1, "Select at least one task").max(100) }),
+]);
+
+export const simulationInputSchema = z.object({
+  projectId: z.uuid(),
+  name: z.string().trim().min(1, "Name the scenario").max(120),
+  scenario: scenarioSchema,
+});
+
 export const workspaceNameSchema = z.string().trim().min(1, "Name is required").max(120);
 
 export type ProjectInput = z.input<typeof projectSchema>;
@@ -86,6 +100,7 @@ export type TaskProgressInput = z.input<typeof taskProgressSchema>;
 export type MilestoneInput = z.input<typeof milestoneSchema>;
 export type BudgetEntryInput = z.input<typeof budgetEntrySchema>;
 export type TeamMemberInput = z.input<typeof teamMemberSchema>;
+export type SimulationInput = z.input<typeof simulationInputSchema>;
 
 /** First error per field, for inline form messages. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {

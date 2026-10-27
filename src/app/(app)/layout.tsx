@@ -16,7 +16,7 @@ function Wordmark() {
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-nav md:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-nav md:flex print:hidden">
         <div className="px-5 pt-5 pb-4">
           <Wordmark />
         </div>
@@ -34,14 +34,16 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 items-center justify-between bg-nav px-4 md:hidden">
+        <header className="flex h-12 items-center justify-between bg-nav px-4 md:hidden print:hidden">
           <Wordmark />
           <MobileNav />
         </header>
-        <Suspense fallback={null}>
-          <ActiveDemoBanner />
-        </Suspense>
-        <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <div className="print:hidden">
+          <Suspense fallback={null}>
+            <ActiveDemoBanner />
+          </Suspense>
+        </div>
+        <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-8 print:p-0">{children}</main>
       </div>
     </div>
   );

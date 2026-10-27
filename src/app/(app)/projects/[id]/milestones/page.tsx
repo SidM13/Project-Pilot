@@ -6,7 +6,7 @@ import { MilestoneList } from "@/components/projects/milestone-list";
 export default async function ProjectMilestonesPage({ params }: PageProps<"/projects/[id]/milestones">) {
   const { id } = await params;
   const { project, facts, findings, referenceDate } = await getProjectView(id);
-  const atRisk = new Set(findings.filter((f) => f.rule === "milestone_at_risk" || f.rule === "blocked_task").flatMap((f) => f.milestoneIds));
+  const atRisk = new Set(findings.filter((f) => f.rule === "milestone_at_risk" || f.rule === "milestone_forecast_late" || f.rule === "blocked_task").flatMap((f) => f.milestoneIds));
   const rows = [...facts.milestones]
     .sort((a, b) => a.due_date.localeCompare(b.due_date))
     .map((m) => {

@@ -19,6 +19,8 @@ export interface Decision {
   evidence: Evidence[];
   action: string;
   findingIds: string[];
+  /** Pre-filled Decision Simulator scenario for the recommended action, when there is one. */
+  simulation?: { kind: "reassign"; taskId: string; toMemberId: string };
 }
 
 /** A member may receive work only if their load after the move stays at or below this. */
@@ -28,7 +30,8 @@ const RULE_RANK: RuleId[] = [
   "blocked_task",
   "milestone_overdue",
   "resource_overload",
-  "milestone_at_risk",
+  "milestone_forecast_late",
+  "project_forecast_late",
   "budget_overrun",
   "overdue_task",
   "behind_schedule",
@@ -126,7 +129,10 @@ export function buildDecisions(
     const load = loads.get(memberId)!;
     const primary = fs[0];
     // Milestones at risk because this member lacks capacity are the same decision.
-    const milestoneRisks = all.filter((f) => f.rule === "milestone_at_risk" && f.meta?.capacityShortfall && f.memberIds.includes(memberId));
+    // Forecast slips driven by this member's queue (not by a blocker) are the same decision.
+    const milestoneRisks = all.filter(
+      (f) => (f.rule === "milestone_forecast_late" || f.rule === "project_forecast_late") && f.meta?.ownerConstrained && !f.meta?.blockedUpstream && f.memberIds.includes(memberId),
+    );
     milestoneRisks.forEach((f) => consumed.add(f.id));
     fs.forEach((f) => consumed.add(f.id));
 
@@ -149,9 +155,10 @@ export function buildDecisions(
       projectId: move ? tasksById.get(move.taskId)!.project_id : (deferrable?.project_id ?? primary.projectId),
       problem: `${load.name} is booked at ${load.loadPercent}% of capacity across ${fs.length === 1 ? "1 project" : `${fs.length} projects`}.`,
       impact: milestoneRisks[0]?.impact ?? primary.impact,
-      evidence: [primary.evidence[0], ...fs.flatMap((f) => f.evidence.slice(1)), ...milestoneRisks.flatMap((f) => f.evidence.filter((e) => e.ref?.kind === "member"))],
+      evidence: dedupe([primary.evidence[0], ...fs.flatMap((f) => f.evidence.slice(1)), ...milestoneRisks.flatMap((f) => f.evidence.slice(0, 1))]),
       action,
       findingIds: [...fs.map((f) => f.id), ...milestoneRisks.map((f) => f.id)],
+      simulation: move ? { kind: "reassign", taskId: move.taskId, toMemberId: move.toMemberId } : undefined,
     });
   }
 
@@ -165,24 +172,37 @@ export function buildDecisions(
         const ownerId = f.meta?.assigneeId as string | null;
         const milestoneName = (f.meta?.milestoneName as string | null) ?? "the milestone";
         const slack = f.meta?.slack as number | null;
+        const clearBy = f.meta?.latestClearDate as string | null;
+        // Forecast slips caused by this blocker are explained here rather than repeated.
+        const caused = all.filter((x) => (x.rule === "milestone_forecast_late" || x.rule === "project_forecast_late") && x.projectId === f.projectId && x.meta?.blockedUpstream);
+        caused.forEach((x) => consumed.add(x.id));
+        const knockOn = caused.filter((x) => x.rule === "milestone_forecast_late" && !x.milestoneIds.includes(f.meta?.milestoneId as string));
+        const evidence = knockOn.length
+          ? [...f.evidence, { text: `Knock-on: ${knockOn.map((x) => `${x.meta?.targetName} ${-(x.impact?.value ?? 0)} wd late`).join(", ")}${caused.some((x) => x.rule === "project_forecast_late") ? "; project finish also slips" : ""}` }]
+          : f.evidence;
         const ownerLoad = ownerId ? loads.get(ownerId) : undefined;
         const parts: string[] = [];
         if (slack === null) parts.push(`Escalate the blocker with ${nameOf(ownerId)} and agree a resolution date.`);
-        else if (slack >= 0) parts.push(`Escalate the blocker now; if it cannot clear within ${slack === 0 ? "today" : `${slack} working day${slack === 1 ? "" : "s"}`}, revise the "${milestoneName}" milestone or its dependency on this task.`);
-        else parts.push(`Re-baseline "${milestoneName}" — it cannot be met even if the blocker clears today — and escalate the blocker.`);
+        else if (slack >= 0) parts.push(`Escalate the blocker now; if it cannot clear by ${clearBy ? formatShortDate(clearBy) : "today"}, revise the "${milestoneName}" milestone or its dependency on this task.`);
+        else if (clearBy) parts.push(`Escalate to bring the blocker forward to ${formatShortDate(clearBy)} or earlier; otherwise re-baseline "${milestoneName}" or remove its dependency on this task.`);
+        else parts.push(`Re-baseline "${milestoneName}" — it cannot be met even if the blocker clears today — and add capacity to the work after it.`);
         if (ownerLoad && ownerLoad.loadPercent > OVERLOAD_THRESHOLD_PERCENT) {
           parts.push(`${ownerLoad.name} is also at ${ownerLoad.loadPercent}% capacity, so the fix will need freed-up time.`);
         }
-        push({ id: `decision:${f.id}`, rule: f.rule, severity: f.severity, projectId: f.projectId, problem: `${f.title}.`, impact: f.impact, evidence: f.evidence, action: parts.join(" "), findingIds: [f.id] });
+        push({ id: `decision:${f.id}`, rule: f.rule, severity: f.severity, projectId: f.projectId, problem: `${f.title}.`, impact: f.impact, evidence, action: parts.join(" "), findingIds: [f.id, ...caused.map((x) => x.id)] });
         break;
       }
       case "milestone_overdue":
         push({ id: `decision:${f.id}`, rule: f.rule, severity: f.severity, projectId: f.projectId, problem: `${f.title}.`, impact: f.impact, evidence: f.evidence, action: `Agree a revised date with ${client} and re-plan the ${f.taskIds.length} open task${f.taskIds.length === 1 ? "" : "s"} linked to it.`, findingIds: [f.id] });
         break;
-      case "milestone_at_risk":
-        if (!f.meta?.capacityShortfall) break;
-        push({ id: `decision:${f.id}`, rule: f.rule, severity: f.severity, projectId: f.projectId, problem: `${f.title}.`, impact: f.impact, evidence: f.evidence, action: `Move work off the constrained owner or move the milestone date; confirm with ${client} before ${formatShortDate(projectById.get(f.projectId)!.target_date)}.`, findingIds: [f.id] });
+      case "milestone_forecast_late":
+      case "project_forecast_late": {
+        if (SEVERITY_ORDER.indexOf(f.severity) > SEVERITY_ORDER.indexOf("high")) break;
+        const ownerId = f.memberIds[0];
+        const what = f.rule === "milestone_forecast_late" ? "a new milestone date" : `a new date for the ${formatShortDate(project.target_date)} target`;
+        push({ id: `decision:${f.id}`, rule: f.rule, severity: f.severity, projectId: f.projectId, problem: `${f.title}.`, impact: f.impact, evidence: f.evidence, action: `Add capacity to the critical chain${ownerId ? ` (currently ${nameOf(ownerId)})` : ""}, reduce scope, or agree ${what} with ${client}.`, findingIds: [f.id] });
         break;
+      }
       case "budget_overrun": {
         const pending = projectsTasks(projects, f.projectId).filter((t) => t.status === "todo" && !t.is_critical);
         const hours = pending.reduce((s, t) => s + remainingHours(t), 0);
@@ -215,4 +235,9 @@ export function buildDecisions(
 
 function projectsTasks(projects: ProjectFindings[], projectId: string) {
   return projects.find((p) => p.project.id === projectId)?.tasks ?? [];
+}
+
+function dedupe(evidence: Evidence[]): Evidence[] {
+  const seen = new Set<string>();
+  return evidence.filter((e) => !seen.has(e.text) && !!seen.add(e.text));
 }

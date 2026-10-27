@@ -102,6 +102,21 @@ export async function deleteTask(taskId: string): Promise<ActionResult> {
   }
 }
 
+/** Brings a deferred task back into the plan. */
+export async function restoreTask(taskId: string): Promise<ActionResult> {
+  try {
+    const id = uuid.parse(taskId);
+    const ctx = await actionContext();
+    const { data: row, error } = await ctx.supabase.from("tasks").update({ deferred_at: null }).eq("id", id).select("project_id, title").single();
+    if (error) throw error;
+    await logActivity(ctx, { projectId: row.project_id, entityType: "task", entityId: id, action: "restored", summary: `Deferred task restored to the plan: "${row.title}"` });
+    refresh();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 // ── Dependencies ──────────────────────────────────────────────────────────────
 
 export async function addDependency(projectId: string, input: { task_id: string; depends_on_id: string }): Promise<ActionResult> {

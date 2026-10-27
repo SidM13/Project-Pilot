@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isDemoMode, isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import type {
   ActivityEvent,
@@ -22,7 +22,7 @@ import type {
 export const ACTIVE_WORKSPACE_COOKIE = "pp_ws";
 
 export const getUser = cache(async () => {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured && !isDemoMode) return null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -63,8 +63,10 @@ export const getActiveMembership = cache(async (): Promise<Membership> => {
   return memberships.find((m) => m.workspace.id === selected) ?? memberships[0];
 });
 
-export const getWorkspaceSnapshot = cache(async (): Promise<WorkspaceSnapshot> => {
-  const { workspace } = await getActiveMembership();
+export const getWorkspaceSnapshot = cache(async (): Promise<WorkspaceSnapshot> => loadWorkspaceSnapshot((await getActiveMembership()).workspace));
+
+/** Uncached load — use after writes in the same request (e.g. recording risk history). */
+export async function loadWorkspaceSnapshot(workspace: Workspace): Promise<WorkspaceSnapshot> {
   const supabase = await createClient();
   const ws = workspace.id;
   const [members, projects, milestones, tasks, dependencies, budgetEntries] = await Promise.all([
@@ -95,7 +97,7 @@ export const getWorkspaceSnapshot = cache(async (): Promise<WorkspaceSnapshot> =
     dependencies: dependencies.data as TaskDependency[],
     budgetEntries: (budgetEntries.data as BudgetEntry[]).map((e) => ({ ...e, amount: Number(e.amount) })),
   };
-});
+}
 
 export async function getActivity(projectId: string, limit = 50): Promise<ActivityEvent[]> {
   const supabase = await createClient();

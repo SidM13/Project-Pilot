@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { cookies } from "next/headers";
+import { DEMO_SESSION_COOKIE, isDemoMode } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuthState = { error?: string; message?: string } | undefined;
@@ -38,6 +40,10 @@ export async function signUp(_: AuthState, formData: FormData): Promise<AuthStat
 
 /** Signs in to the shared demo account. Credentials stay on the server. */
 export async function signInDemo(): Promise<AuthState> {
+  if (isDemoMode) {
+    (await cookies()).set(DEMO_SESSION_COOKIE, "1", { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" });
+    redirect("/command-center");
+  }
   const email = process.env.DEMO_EMAIL;
   const password = process.env.DEMO_PASSWORD;
   if (!email || !password) return { error: "The demo workspace is not configured on this server (DEMO_EMAIL / DEMO_PASSWORD)." };
@@ -48,6 +54,10 @@ export async function signInDemo(): Promise<AuthState> {
 }
 
 export async function signOut() {
+  if (isDemoMode) {
+    (await cookies()).delete(DEMO_SESSION_COOKIE);
+    redirect("/login");
+  }
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");

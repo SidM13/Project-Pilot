@@ -15,7 +15,11 @@ describe("demo workspace narrative", () => {
     expect(top.rule).toBe("blocked_task");
     expect(top.severity).toBe("critical");
     expect(top.problem).toMatch(/Kestrel WMS vendor integration/);
-    expect(top.impact?.label).toMatch(/Data migration complete/);
+    // Kestrel's committed date (Nov 26) → "Data migration complete" (Nov 27) forecast Dec 8.
+    expect(top.impact?.label).toBe('"Data migration complete" forecast 7 working days late if the blocker clears on Nov 26 as expected');
+    expect(a.forecast.milestones.get("erp_m2")).toMatchObject({ finish: "2026-12-08", slipWorkingDays: 7 });
+    // Downstream slips (UAT, Go-live, project finish) are folded in, not listed as separate decisions.
+    expect(a.decisions.filter((d) => d.projectId === "erp" && d.rule.endsWith("forecast_late"))).toHaveLength(0);
     expect(top.evidence.some((e) => /Database migration/.test(e.text))).toBe(true);
   });
 
@@ -38,8 +42,10 @@ describe("demo workspace narrative", () => {
     const d = a.decisions.find((x) => x.id === "decision:overload:maya")!;
     expect(d.projectId).toBe("web");
     expect(d.action).toMatch(/Content migration \(240 pages\).*to Jordan Ruiz/);
-    // The staging milestone risk is folded into the overload decision, not repeated.
-    expect(a.decisions.some((x) => x.id.startsWith("decision:milestone_at_risk:web_m2"))).toBe(false);
+    // The staging milestone slip is caused by Maya's queue, so it is folded into the overload decision.
+    expect(a.forecast.milestones.get("web_m2")?.slipWorkingDays).toBe(3);
+    expect(a.decisions.some((x) => x.id.includes("web_m2"))).toBe(false);
+    expect(d.evidence.some((e) => /Staging site complete/.test(e.text))).toBe(true);
   });
 
   it("does not over-commit spare capacity across recommendations", () => {

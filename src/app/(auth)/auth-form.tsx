@@ -7,9 +7,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/system/field";
 
-export function AuthForm({ mode, configured }: { mode: "login" | "signup"; configured: boolean }) {
+export function AuthForm({ mode, configured, demoMode }: { mode: "login" | "signup"; configured: boolean; demoMode: boolean }) {
   const [state, action, pending] = useActionState<AuthState, FormData>(mode === "login" ? signIn : signUp, undefined);
   const [demoState, demoAction, demoPending] = useActionState<AuthState, FormData>(signInDemo, undefined);
+
+  if (demoMode) {
+    return (
+      <div className="w-full max-w-sm">
+        <p className="text-[10px] font-semibold tracking-[0.08em] text-primary uppercase">Local demo mode</p>
+        <h2 className="mt-1 font-serif text-[22px] font-semibold tracking-tight">Explore the demo workspace</h2>
+        <p className="mt-2 text-[13px] leading-5 text-muted-foreground">
+          Northwind Advisory is a fictional consulting firm with three client projects, eight team members and a pinned reference date, so every figure is reproducible. Data is held in memory on this server — it is not connected to a database and resets when the server restarts.
+        </p>
+        <form action={demoAction} className="mt-6">
+          <Button type="submit" size="lg" disabled={demoPending} className="w-full">
+            {demoPending ? "Opening…" : "Open demo workspace"}
+          </Button>
+        </form>
+        {demoState?.error && <p role="alert" className="mt-2 text-xs text-critical">{demoState.error}</p>}
+        <p className="mt-6 text-xs text-muted-foreground">Accounts and real company data require database mode (PROJECTPILOT_DATA_MODE=supabase).</p>
+      </div>
+    );
+  }
 
   if (!configured) {
     return (

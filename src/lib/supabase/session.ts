@@ -1,12 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "@/lib/env";
+import { DEMO_SESSION_COOKIE, isDemoMode, SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "@/lib/env";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/auth"];
 
 /** Refreshes the auth cookie on every request and routes signed-out users to /login. */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
+  if (isDemoMode) return gate(request, response, request.cookies.get(DEMO_SESSION_COOKIE)?.value === "1");
   if (!isSupabaseConfigured) return response; // the login page explains how to configure
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -24,7 +25,10 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  return gate(request, response, !!user);
+}
 
+function gate(request: NextRequest, response: NextResponse, signedIn: boolean) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
@@ -37,7 +41,7 @@ export async function updateSession(request: NextRequest) {
     return res;
   };
 
-  if (!user && !isPublic) return redirectTo("/login");
-  if (user && (pathname === "/" || pathname === "/login" || pathname === "/signup")) return redirectTo("/command-center");
+  if (!signedIn && !isPublic) return redirectTo("/login");
+  if (signedIn && (pathname === "/" || pathname === "/login" || pathname === "/signup")) return redirectTo("/command-center");
   return response;
 }

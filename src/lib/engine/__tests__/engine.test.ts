@@ -126,28 +126,37 @@ describe("findings and health", () => {
     expect(rules).not.toContain("overdue_task");
   });
 
-  it("computes slack from the dependent chain to the affected milestone", () => {
+  it("measures a blocker's impact on its milestone with forecast re-runs", () => {
     const m = member({ id: "dev", weekly_capacity_hours: 40 }); // 8 h/day
     const p = project({ id: "p" });
-    const ms = milestone("p", { id: "ms", name: "Data ready", due_date: "2026-11-27" }); // 10 working days
+    const ms = milestone("p", { id: "ms", name: "Data ready", due_date: "2026-11-27" }); // Fri, 10 working days
     const blocked = task("p", { id: "a", status: "blocked", priority: "critical", milestone_id: "ms", assignee_id: "dev", planned_hours: 32 }); // 4 days
     const next = task("p", { id: "b", milestone_id: "ms", assignee_id: "dev", planned_hours: 40, start_date: ref }); // 5 days
-    const a = analyzeWorkspace(snapshot({ members: [m], projects: [p], milestones: [ms], tasks: [blocked, next], dependencies: [dep("p", "b", "a")] }), ref);
-    const f = a.projects[0].findings.find((x) => x.rule === "blocked_task")!;
-    expect(f.impact?.value).toBe(1);
-    expect(f.impact?.label).toMatch(/Must clear by Nov 17/);
-    expect(f.taskIds).toContain("b"); // waiting task is cited
+    const s = snapshot({ members: [m], projects: [p], milestones: [ms], tasks: [blocked, next], dependencies: [dep("p", "b", "a")] });
+
+    const holds = analyzeWorkspace(s, ref).projects[0].findings.find((x) => x.rule === "blocked_task")!;
+    expect(holds.impact?.label).toMatch(/Must clear by Nov 17/); // 9 days of chained work, 10 available
+    expect(holds.taskIds).toContain("b");
+
+    blocked.blocked_until = "2026-11-23"; // cleared a week later → 4 working days late
+    const late = analyzeWorkspace(s, ref);
+    const f = late.projects[0].findings.find((x) => x.rule === "blocked_task")!;
+    expect(f.impact).toMatchObject({ value: -4 });
+    expect(f.impact?.label).toMatch(/4 working days late if the blocker clears on Nov 23/);
+    // The milestone slip is the blocker's knock-on effect, so it is one decision, not two.
+    expect(late.decisions.filter((d) => d.projectId === "p" && d.rule !== "behind_schedule")).toHaveLength(1);
   });
 
-  it("flags a milestone when its owner lacks capacity before the due date", () => {
+  it("flags a milestone the capacity forecast says will be late, citing the driving task", () => {
     const m = member({ id: "dev", name: "Dev", weekly_capacity_hours: 40 });
     const p = project({ id: "p" });
-    const ms = milestone("p", { id: "ms", due_date: "2026-11-18" }); // 3 working days = 24 h
-    const t = task("p", { milestone_id: "ms", assignee_id: "dev", planned_hours: 30 });
+    const ms = milestone("p", { id: "ms", name: "Beta", due_date: "2026-11-18" }); // 3 working days = 24 h
+    const t = task("p", { title: "Build", milestone_id: "ms", assignee_id: "dev", planned_hours: 30 });
     const a = analyzeWorkspace(snapshot({ members: [m], projects: [p], milestones: [ms], tasks: [t] }), ref);
-    const f = a.projects[0].findings.find((x) => x.rule === "milestone_at_risk")!;
-    expect(f.severity).toBe("high");
-    expect(f.impact?.value).toBe(6);
+    const f = a.projects[0].findings.find((x) => x.rule === "milestone_forecast_late")!;
+    expect(f.severity).toBe("medium");
+    expect(f.impact?.value).toBe(-1);
+    expect(f.evidence[1].text).toMatch(/Last to finish: "Build" \(Dev/);
   });
 
   it("caps penalties per category and bands the score", () => {

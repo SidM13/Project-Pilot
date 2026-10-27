@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "db:push": "node --env-file=.env.local scripts/db-push.mjs",
     "demo:setup": "node --env-file=.env.local scripts/setup-demo.mjs",
-    "verify:security": "node --env-file=.env.local scripts/verify-security.mjs"
+    "verify:security": "node --env-file=.env.local scripts/verify-security.mjs",
+    "check:supabase": "node scripts/check-supabase.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

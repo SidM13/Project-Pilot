@@ -34,6 +34,7 @@ function initial(task?: Task): Values {
     actual_hours: task ? String(task.actual_hours) : "0",
     remaining_hours: task?.remaining_hours == null ? "" : String(task.remaining_hours),
     blocked_reason: task?.blocked_reason ?? "",
+    blocked_until: task?.blocked_until ?? "",
   };
 }
 
@@ -131,9 +132,14 @@ export function TaskDialog({ projectId, task, tasks, dependencies, members, mile
               <Input id="t-remaining" inputMode="decimal" value={v.remaining_hours} onChange={set("remaining_hours")} placeholder="auto" aria-invalid={!!errors.remaining_hours} />
             </Field>
             {v.status === "blocked" && (
-              <Field label="What is blocking it?" htmlFor="t-blocked" error={errors.blocked_reason} className="sm:col-span-6">
-                <Input id="t-blocked" value={v.blocked_reason} onChange={set("blocked_reason")} maxLength={1000} placeholder="e.g. Waiting on vendor credentials" />
-              </Field>
+              <>
+                <Field label="What is blocking it?" htmlFor="t-blocked" error={errors.blocked_reason} className="sm:col-span-4">
+                  <Input id="t-blocked" value={v.blocked_reason} onChange={set("blocked_reason")} maxLength={1000} placeholder="e.g. Waiting on vendor credentials" />
+                </Field>
+                <Field label="Expected to clear" htmlFor="t-blocked-until" error={errors.blocked_until} hint="Blank = forecast assumes today" className="sm:col-span-2">
+                  <Input id="t-blocked-until" type="date" value={v.blocked_until} onChange={set("blocked_until")} />
+                </Field>
+              </>
             )}
             <Field label="Description" htmlFor="t-desc" className="sm:col-span-6">
               <Textarea id="t-desc" value={v.description} onChange={set("description")} rows={2} maxLength={4000} />

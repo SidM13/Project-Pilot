@@ -75,7 +75,10 @@ export interface Task {
   actual_hours: number;
   remaining_hours: number | null;
   blocked_reason: string;
+  blocked_until: string | null;
   completed_at: string | null;
+  /** Set when scope was reduced; deferred tasks are excluded from every calculation. */
+  deferred_at: string | null;
   updated_at: string;
 }
 

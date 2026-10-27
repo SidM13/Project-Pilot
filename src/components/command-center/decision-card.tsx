@@ -8,6 +8,12 @@ import { cn } from "@/lib/utils";
 
 const EVIDENCE_PREVIEW = 3;
 
+function simulatorHref(d: Decision) {
+  const q = new URLSearchParams({ project: d.projectId });
+  if (d.simulation) Object.entries(d.simulation).forEach(([k, v]) => q.set(k === "toMemberId" ? "to" : k === "taskId" ? "task" : k, v));
+  return `/simulator?${q}`;
+}
+
 export function DecisionCard({ decision, rank }: { decision: Decision; rank: number }) {
   const extra = decision.evidence.length - EVIDENCE_PREVIEW;
   return (
@@ -52,9 +58,14 @@ export function DecisionCard({ decision, rank }: { decision: Decision; rank: num
         <p className="mt-1 text-[13px] leading-5">{decision.action}</p>
       </div>
 
-      <Link href={`/projects/${decision.projectId}`} className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline underline-offset-2">
-        Open project <ArrowRight className="size-3" />
-      </Link>
+      <div className="flex flex-wrap gap-4">
+        <Link href={`/projects/${decision.projectId}`} className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline underline-offset-2">
+          Open project <ArrowRight className="size-3" />
+        </Link>
+        <Link href={simulatorHref(decision)} className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline underline-offset-2">
+          {decision.simulation ? "Simulate this action" : "Simulate options"} <ArrowRight className="size-3" />
+        </Link>
+      </div>
     </article>
   );
 }

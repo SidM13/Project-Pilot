@@ -107,6 +107,8 @@ create table public.tasks (
   -- Owner's estimate of work left. Null = derive as max(planned - actual, 0).
   remaining_hours numeric(7, 1) check (remaining_hours >= 0),
   blocked_reason  text not null default '' check (char_length(blocked_reason) <= 1000),
+  -- When a blocked task is expected to become workable (e.g. a vendor's committed date).
+  blocked_until   date,
   completed_at    timestamptz,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),

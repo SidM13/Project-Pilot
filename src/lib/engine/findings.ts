@@ -1,9 +1,10 @@
 import type { BudgetEntry, Milestone, Priority, Project, Task, TaskDependency, TeamMember, Workspace } from "@/lib/types";
 import { formatMoney, formatShortDate } from "@/lib/format";
-import { addWorkingDays, daysBetween, workingDaysInclusive } from "./dates";
-import { buildGraph, reachable, topologicalOrder } from "./graph";
-import { dailyCapacity, OVERLOAD_THRESHOLD_PERCENT, type LoadWindow, type MemberLoad } from "./capacity";
+import { addWorkingDays, daysBetween } from "./dates";
+import { buildGraph, reachable } from "./graph";
+import { OVERLOAD_THRESHOLD_PERCENT, type LoadWindow, type MemberLoad } from "./capacity";
 import type { CostMetrics } from "./cost";
+import type { BlockerImpact, DateForecast, Forecast } from "./forecast";
 import { isOpen, remainingHours, type ScheduleMetrics } from "./progress";
 
 // Calculated findings: each rule below turns database facts into a finding with
@@ -19,6 +20,8 @@ export type RuleId =
   | "overdue_task"
   | "milestone_overdue"
   | "milestone_at_risk"
+  | "milestone_forecast_late"
+  | "project_forecast_late"
   | "behind_schedule"
   | "budget_overrun"
   | "budget_headroom"
@@ -32,6 +35,8 @@ export const RULE_CATEGORY: Record<RuleId, FindingCategory> = {
   overdue_task: "schedule",
   milestone_overdue: "schedule",
   milestone_at_risk: "schedule",
+  milestone_forecast_late: "schedule",
+  project_forecast_late: "schedule",
   behind_schedule: "schedule",
   budget_overrun: "budget",
   budget_headroom: "budget",
@@ -73,6 +78,8 @@ export interface Finding {
 
 export interface FindingContext {
   referenceDate: string;
+  forecast: Forecast;
+  blockerImpacts: Map<string, BlockerImpact>;
   workspace: Workspace;
   members: Map<string, TeamMember>;
   loads: Map<string, MemberLoad>;
@@ -114,7 +121,6 @@ export function buildFindings(facts: ProjectFacts, ctx: FindingContext, schedule
   const graph = buildGraph(dependencies.filter((d) => byId.has(d.task_id) && byId.has(d.depends_on_id)));
   const memberName = (id: string | null) => (id ? (members.get(id)?.name ?? "Unknown member") : "Unassigned");
   const openMilestones = milestones.filter((m) => !m.completed_at).sort((a, b) => a.due_date.localeCompare(b.due_date));
-  const durationDays = (t: Task) => Math.ceil(remainingHours(t) / Math.max(0.1, dailyCapacity(t.assignee_id ? members.get(t.assignee_id) : undefined, workspace)));
   const findings: Finding[] = [];
 
   // ── Blocked tasks ────────────────────────────────────────────────────────────
@@ -132,37 +138,37 @@ export function buildFindings(facts: ProjectFacts, ctx: FindingContext, schedule
 
     // Slack: longest chain (in working days at each owner's capacity) from this task through
     // downstream work of the affected milestone, compared with working days left until it is due.
+    // Impact from the capacity forecast: re-run with this blocker clearing later (see forecast.blockerImpact).
     let impact: Impact | null = null;
-    let slack: number | null = null;
-    if (affectedMilestone) {
-      const chainIds = [t.id, ...downstream.filter((d) => d.milestone_id === affectedMilestone.id).map((d) => d.id)];
-      const finish = new Map<string, number>();
-      for (const id of topologicalOrder(chainIds, dependencies)) {
-        const before = (graph.upstream.get(id) ?? []).filter((u) => finish.has(u)).map((u) => finish.get(u)!);
-        finish.set(id, Math.max(0, ...before) + durationDays(byId.get(id)!));
-      }
-      const chainDays = Math.max(...finish.values());
-      const available = workingDaysInclusive(ref, affectedMilestone.due_date);
-      slack = available - chainDays;
+    const bi = affectedMilestone ? ctx.blockerImpacts.get(t.id) : undefined;
+    if (t.blocked_until) evidence.push({ text: `Expected to clear ${formatShortDate(t.blocked_until)} (recorded on the task)` });
+    if (affectedMilestone && bi) {
+      const name = affectedMilestone.name;
+      const mf = ctx.forecast.milestones.get(affectedMilestone.id);
       evidence.push({
-        text: `Feeds milestone "${affectedMilestone.name}" (due ${formatShortDate(affectedMilestone.due_date)}): ${chainDays} working days of dependent work vs ${available} available`,
+        text: `Feeds milestone "${name}", due ${formatShortDate(affectedMilestone.due_date)}; forecast ${mf?.finish ? formatShortDate(mf.finish) : "unknown"}${t.blocked_until ? "" : " assuming it clears today"}`,
         ref: { kind: "milestone", id: affectedMilestone.id },
       });
-      impact =
-        slack >= 0
-          ? {
-              kind: "schedule",
-              value: slack,
-              unit: "working_days",
-              label: `Must clear by ${formatShortDate(addWorkingDays(ref, slack))} to hold "${affectedMilestone.name}"; each further working day blocked delays it by one day`,
-            }
-          : {
-              kind: "schedule",
-              value: slack,
-              unit: "working_days",
-              label: `"${affectedMilestone.name}" is at least ${plural(-slack, "working day")} late even if unblocked today`,
-            };
+      if (bi.latestClearDate) evidence.push({ text: `Clearing by ${formatShortDate(bi.latestClearDate)} would still hold "${name}" (forecast re-run)` });
+      else if (bi.slipIfClearedNow !== null && bi.slipIfClearedNow > 0) evidence.push({ text: `Even clearing today, "${name}" is forecast ${plural(bi.slipIfClearedNow, "working day")} late` });
+      if (bi.slipPerWeekBlocked) evidence.push({ text: `Each further week blocked moves "${name}" by about ${plural(bi.slipPerWeekBlocked, "working day")}` });
+
+      const planned = bi.slipAsPlanned;
+      if (planned !== null && planned > 0) {
+        impact = {
+          kind: "schedule",
+          value: -planned,
+          unit: "working_days",
+          label: t.blocked_until
+            ? `"${name}" forecast ${plural(planned, "working day")} late if the blocker clears on ${formatShortDate(t.blocked_until)} as expected`
+            : `"${name}" forecast ${plural(planned, "working day")} late even if the blocker clears today`,
+        };
+      } else if (bi.latestClearDate) {
+        impact = { kind: "schedule", value: bi.latestClearOffset ?? 0, unit: "working_days", label: `Must clear by ${formatShortDate(bi.latestClearDate)} to hold "${name}"` };
+      }
     }
+    // Slack in working days: negative = forecast slip, otherwise days of clearance margin.
+    const slack = bi?.slipAsPlanned != null && bi.slipAsPlanned > 0 ? -bi.slipAsPlanned : (bi?.latestClearOffset ?? null);
 
     let severity = PRIORITY_SEVERITY[t.priority];
     if (t.is_critical || (slack !== null && slack <= 2) || downstream.length >= 3) severity = bump(severity);
@@ -177,7 +183,7 @@ export function buildFindings(facts: ProjectFacts, ctx: FindingContext, schedule
       taskIds: [t.id, ...waiting.map((w) => w.id)],
       milestoneIds: affectedMilestone ? [affectedMilestone.id] : [],
       memberIds: t.assignee_id ? [t.assignee_id] : [],
-      meta: { assigneeId: t.assignee_id, milestoneId: affectedMilestone?.id ?? null, milestoneName: affectedMilestone?.name ?? null, slack },
+      meta: { assigneeId: t.assignee_id, milestoneId: affectedMilestone?.id ?? null, milestoneName: affectedMilestone?.name ?? null, slack, latestClearDate: bi?.latestClearDate ?? null },
     });
   }
 
@@ -242,44 +248,37 @@ export function buildFindings(facts: ProjectFacts, ctx: FindingContext, schedule
       });
       continue;
     }
+    // (a) capacity forecast says the milestone finishes after its due date (any horizon).
+    const mf = ctx.forecast.milestones.get(m.id);
+    if (mf?.slipWorkingDays != null && mf.slipWorkingDays > 0) {
+      findings.push(lateFinding({ kind: "milestone", id: m.id, name: m.name }, mf, project.id, ctx, byId, graph, memberName));
+      continue;
+    }
+    // (b) forecast holds, but linked work due soon is blocked or overdue.
     if (m.due_date > horizon) continue;
-
-    // (a) capacity: an owner's remaining hours on this milestone exceed their capacity before it is due.
-    const available = workingDaysInclusive(ref, m.due_date);
-    const hoursByOwner = new Map<string | null, number>();
-    for (const t of linked) hoursByOwner.set(t.assignee_id, (hoursByOwner.get(t.assignee_id) ?? 0) + remainingHours(t));
-    const short = [...hoursByOwner].flatMap(([ownerId, hours]) => {
-      const capacity = dailyCapacity(ownerId ? members.get(ownerId) : undefined, workspace) * available;
-      return hours > capacity ? [{ ownerId, hours, capacity }] : [];
-    });
-    // (b) a linked task is blocked or overdue.
     const troubled = linked.filter((t) => t.status === "blocked" || isOverdue(t, ref));
-    if (!short.length && !troubled.length) continue;
-
-    const evidence: Evidence[] = [
-      ...short.map((s) => ({
-        text: `${memberName(s.ownerId)} has ${Math.round(s.hours)} h of remaining work on this milestone but ${Math.round(s.capacity)} h of capacity before ${formatShortDate(m.due_date)}`,
-        ref: s.ownerId ? { kind: "member" as const, id: s.ownerId } : undefined,
-      })),
-      ...troubled.map((t) => ({ text: `"${t.title}" is ${t.status === "blocked" ? "blocked" : "overdue"}`, ref: { kind: "task" as const, id: t.id } })),
-    ];
-    const shortfall = short.reduce((s, x) => s + (x.hours - x.capacity), 0);
+    if (!troubled.length) continue;
     findings.push({
       id: `milestone_at_risk:${m.id}`,
       rule: "milestone_at_risk",
-      // Capacity shortfalls are new information; blocked/overdue causes already have their own finding.
-      severity: short.length ? "high" : "medium",
+      severity: "medium",
       projectId: project.id,
-      title: `Milestone "${m.name}" (due ${formatShortDate(m.due_date)}) is at risk`,
-      evidence,
-      impact: short.length
-        ? { kind: "capacity", value: Math.round(shortfall), unit: "hours", label: `${Math.round(shortfall)} h more work than capacity before the due date` }
-        : null,
-      taskIds: [...new Set([...troubled.map((t) => t.id), ...linked.filter((t) => short.some((s) => s.ownerId === t.assignee_id)).map((t) => t.id)])],
+      title: `Milestone "${m.name}" (due ${formatShortDate(m.due_date)}) depends on troubled work`,
+      evidence: [
+        { text: `Forecast holds the date${mf?.finish ? ` (${formatShortDate(mf.finish)})` : ""} only if the issues below clear`, ref: { kind: "milestone", id: m.id } },
+        ...troubled.map((t) => ({ text: `"${t.title}" is ${t.status === "blocked" ? "blocked" : "overdue"}`, ref: { kind: "task" as const, id: t.id } })),
+      ],
+      impact: null,
+      taskIds: troubled.map((t) => t.id),
       milestoneIds: [m.id],
-      memberIds: short.flatMap((s) => (s.ownerId ? [s.ownerId] : [])),
-      meta: { capacityShortfall: short.length > 0 },
+      memberIds: [],
     });
+  }
+
+  // ── Project finish forecast ─────────────────────────────────────────────────
+  const pf = ctx.forecast.projects.get(project.id);
+  if (pf?.slipWorkingDays != null && pf.slipWorkingDays > 0) {
+    findings.push(lateFinding({ kind: "project", id: project.id, name: project.name }, pf, project.id, ctx, byId, graph, memberName));
   }
 
   // ── Schedule variance ───────────────────────────────────────────────────────
@@ -367,4 +366,63 @@ export function buildFindings(facts: ProjectFacts, ctx: FindingContext, schedule
   }
 
   return findings.sort((a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity));
+}
+
+export function slipSeverity(slip: number): Severity {
+  return slip >= 10 ? "critical" : slip >= 5 ? "high" : "medium";
+}
+
+/** A forecast-late milestone or project, explained by the task that finishes last and why it is late. */
+function lateFinding(
+  target: { kind: "milestone" | "project"; id: string; name: string },
+  f: DateForecast,
+  projectId: string,
+  ctx: FindingContext,
+  byId: Map<string, Task>,
+  graph: ReturnType<typeof buildGraph>,
+  memberName: (id: string | null) => string,
+): Finding {
+  const slip = f.slipWorkingDays!;
+  const driving = f.drivingTaskId ? byId.get(f.drivingTaskId) : undefined;
+  const tf = driving ? ctx.forecast.tasks.get(driving.id) : undefined;
+  const ownerLoad = driving?.assignee_id ? ctx.loads.get(driving.assignee_id) : undefined;
+  const waitsOn = driving
+    ? (graph.upstream.get(driving.id) ?? [])
+        .map((id) => byId.get(id))
+        .filter((u): u is Task => !!u && isOpen(u))
+        .sort((a, b) => (ctx.forecast.tasks.get(b.id)?.finish ?? "").localeCompare(ctx.forecast.tasks.get(a.id)?.finish ?? ""))
+    : [];
+  const ownerConstrained = !!ownerLoad && ownerLoad.loadPercent > OVERLOAD_THRESHOLD_PERCENT;
+  const label = target.kind === "milestone" ? `Milestone "${target.name}"` : "Project finish";
+  const evidence: Evidence[] = [
+    {
+      text: `${label}: due ${formatShortDate(f.due)}, forecast ${formatShortDate(f.finish)} — ${plural(slip, "working day")} late`,
+      ref: target.kind === "milestone" ? { kind: "milestone", id: target.id } : undefined,
+    },
+  ];
+  if (driving && tf) {
+    evidence.push({
+      text: `Last to finish: "${driving.title}" (${memberName(driving.assignee_id)}, ${remainingHours(driving)} h left), forecast ${formatShortDate(tf.start)}–${formatShortDate(tf.finish)}`,
+      ref: { kind: "task", id: driving.id },
+    });
+    if (waitsOn[0]) {
+      const uf = ctx.forecast.tasks.get(waitsOn[0].id);
+      evidence.push({ text: `It cannot start until "${waitsOn[0].title}" finishes (forecast ${formatShortDate(uf?.finish)})`, ref: { kind: "task", id: waitsOn[0].id } });
+    }
+    if (ownerConstrained) evidence.push({ text: `${ownerLoad!.name} is at ${ownerLoad!.loadPercent}% of capacity over the next ${ctx.window.workingDays} working days`, ref: { kind: "member", id: ownerLoad!.memberId } });
+  }
+  return {
+    id: `${target.kind}_forecast_late:${target.id}`,
+    rule: target.kind === "milestone" ? "milestone_forecast_late" : "project_forecast_late",
+    severity: slipSeverity(slip),
+    projectId,
+    title: target.kind === "milestone" ? `Milestone "${target.name}" is forecast ${plural(slip, "working day")} late` : `Project is forecast to finish ${plural(slip, "working day")} after its target`,
+    evidence,
+    impact: { kind: "schedule", value: -slip, unit: "working_days", label: `Forecast ${formatShortDate(f.finish)} vs due ${formatShortDate(f.due)} (${plural(slip, "working day")} late)` },
+    taskIds: driving ? [driving.id, ...waitsOn.map((u) => u.id)] : [],
+    milestoneIds: target.kind === "milestone" ? [target.id] : [],
+    memberIds: driving?.assignee_id ? [driving.assignee_id] : [],
+    // True when a blocked task sits anywhere upstream of the driving task: the slip is the blocker's knock-on effect.
+    meta: { targetName: target.name, drivingTaskId: driving?.id ?? null, ownerConstrained, blockedUpstream: !!driving && [driving.id, ...reachable(graph.upstream, driving.id)].some((id) => byId.get(id)?.status === "blocked") },
+  };
 }

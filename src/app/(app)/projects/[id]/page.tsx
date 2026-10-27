@@ -14,13 +14,13 @@ import { Pill, SeverityPill, TaskStatusPill } from "@/components/system/status";
 export default async function ProjectOverviewPage({ params }: PageProps<"/projects/[id]">) {
   const { id } = await params;
   const view = await getProjectView(id);
-  const { project, facts, progress, schedule, cost, findings, health, memberById, referenceDate, snapshot } = view;
+  const { project, facts, progress, schedule, cost, findings, health, memberById, referenceDate, snapshot, forecastFinish } = view;
   const currency = snapshot.workspace.currency;
   const activity = await getActivity(project.id, 6);
   const taskById = new Map(facts.tasks.map((t) => [t.id, t]));
   const owner = (mid: string | null) => (mid ? (memberById.get(mid)?.name ?? "Unknown") : "Unassigned");
 
-  const milestoneRisk = new Set(findings.flatMap((f) => (f.rule === "milestone_at_risk" || f.rule === "milestone_overdue" || f.rule === "blocked_task" ? f.milestoneIds : [])));
+  const milestoneRisk = new Set(findings.flatMap((f) => (f.rule === "milestone_at_risk" || f.rule === "milestone_forecast_late" || f.rule === "milestone_overdue" || f.rule === "blocked_task" ? f.milestoneIds : [])));
   const openMilestones = facts.milestones.filter((m) => !m.completed_at).sort((a, b) => a.due_date.localeCompare(b.due_date));
   const criticalTasks = facts.tasks.filter((t) => t.is_critical && isOpen(t)).sort((a, b) => (a.due_date ?? "9").localeCompare(b.due_date ?? "9"));
   const openEdges = facts.dependencies.filter((d) => {
@@ -48,7 +48,12 @@ export default async function ProjectOverviewPage({ params }: PageProps<"/projec
             detail: cost.variancePercent !== null ? `${formatSigned(cost.variancePercent, "%")} of budget` : "No budget set",
           },
           { label: "Spent to date", value: formatMoney(cost.actualCost, currency), detail: cost.burnPercent !== null ? `${cost.burnPercent}% of budget` : undefined },
-          { label: "Days to target", value: schedule.daysRemaining, tone: schedule.daysRemaining < 0 ? "critical" : "default", detail: formatShortDate(project.target_date) },
+          {
+            label: "Forecast finish",
+            value: forecastFinish?.finish ? formatShortDate(forecastFinish.finish) : "—",
+            tone: (forecastFinish?.slipWorkingDays ?? 0) > 0 ? "critical" : "default",
+            detail: forecastFinish?.slipWorkingDays == null ? `Target ${formatShortDate(project.target_date)}` : forecastFinish.slipWorkingDays > 0 ? `${forecastFinish.slipWorkingDays} wd after ${formatShortDate(project.target_date)} target` : `Target ${formatShortDate(project.target_date)} held`,
+          },
         ]}
       />
 
@@ -57,6 +62,7 @@ export default async function ProjectOverviewPage({ params }: PageProps<"/projec
           <Panel
             title="Calculated findings"
             description="Produced by the rules in docs/calculations.md from the records on the other tabs"
+            actions={<Link href={`/risk?project=${project.id}`} className="text-xs font-medium text-primary hover:underline">Forecast &amp; history</Link>}
             bodyClassName="p-0"
           >
             {findings.length === 0 ? (

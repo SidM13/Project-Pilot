@@ -55,6 +55,7 @@ begin
   r := coalesce(r, current_date);
 
   delete from public.activity_events where workspace_id = ws;
+  -- risk_snapshots cascade from projects (table added in 0003).
   delete from public.projects        where workspace_id = ws; -- cascades milestones, tasks, deps, budget
   delete from public.team_members    where workspace_id = ws;
 
@@ -96,7 +97,7 @@ begin
   e_req      := public._seed_task(ws, erp, erp_m1, 'Requirements & process mapping', 'done', 'high', false, daniel, r - 70, r - 52, 60, 64, null, r - 53);
   e_design   := public._seed_task(ws, erp, erp_m1, 'Solution design', 'done', 'high', false, daniel, r - 56, r - 46, 48, 52, null, r - 47);
   e_vendor   := public._seed_task(ws, erp, erp_m2, 'Kestrel WMS vendor integration', 'blocked', 'critical', true, marcus, r - 28, r - 3, 80, 58, 30, null,
-                  'Kestrel has not delivered sandbox credentials for the inventory endpoint. Two follow-ups sent; no committed date.',
+                  'Kestrel has not delivered sandbox credentials for the inventory endpoint. After two follow-ups they committed to the date below.',
                   'Build and test the inventory and shipment sync between the ERP and Kestrel WMS.');
   e_monitor  := public._seed_task(ws, erp, erp_m2, 'Interface error handling & monitoring', 'in_progress', 'high', false, marcus, r - 7, r + 4, 32, 8, 24);
   e_extract  := public._seed_task(ws, erp, erp_m2, 'Legacy data extraction & cleansing', 'in_progress', 'high', true, priya, r - 21, r + 4, 56, 40, 16, null, '',
@@ -108,6 +109,8 @@ begin
   e_uat      := public._seed_task(ws, erp, erp_m3, 'User acceptance testing', 'todo', 'critical', true, elena, r + 21, r + 25, 24, 0, null);
   e_rehearse := public._seed_task(ws, erp, erp_m4, 'Cutover rehearsal', 'todo', 'high', true, marcus, r + 28, r + 30, 16, 0, null);
   e_golive   := public._seed_task(ws, erp, erp_m4, 'Go-live & hypercare', 'todo', 'critical', true, daniel, r + 31, r + 32, 16, 0, null);
+
+  update public.tasks set blocked_until = r + 10 where id = e_vendor; -- Kestrel's committed date (Thu)
 
   insert into public.task_dependencies (workspace_id, project_id, task_id, depends_on_id) values
     (ws, erp, e_design, e_req),
@@ -212,7 +215,7 @@ begin
     (ws, ops, r - 25,  1400.00, 'other',  'Workshop facility hire');
 
   insert into public.activity_events (workspace_id, project_id, entity_type, entity_id, action, summary, created_at) values
-    (ws, erp, 'task', e_vendor, 'status_changed', 'Kestrel WMS vendor integration marked Blocked: awaiting sandbox credentials', (r - 5)::timestamptz + interval '10 hours'),
+    (ws, erp, 'task', e_vendor, 'status_changed', 'Kestrel WMS vendor integration marked Blocked: vendor committed to deliver credentials in 10 days', (r - 5)::timestamptz + interval '10 hours'),
     (ws, erp, 'task', e_extract, 'hours_logged', 'Legacy data extraction & cleansing: 40 h actual, 16 h remaining', (r - 3)::timestamptz + interval '16 hours'),
     (ws, web, 'task', w_content, 'hours_logged', 'Content migration (240 pages): 8 h actual, 48 h remaining', (r - 3)::timestamptz + interval '15 hours'),
     (ws, ops, 'milestone', ops_m2, 'completed', 'Milestone completed: Future-state design approved', (r - 4)::timestamptz + interval '17 hours');

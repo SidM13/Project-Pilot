@@ -1,4 +1,5 @@
 import { signOut } from "@/actions/auth";
+import { isDemoMode } from "@/lib/env";
 import { getReferenceDate } from "@/lib/engine";
 import { getActiveMembership, getMemberships, getUser } from "@/lib/data/workspace";
 import { DemoBanner } from "./demo-banner";
@@ -16,7 +17,7 @@ export async function ActiveWorkspaceSwitcher() {
 export async function ActiveDemoBanner() {
   const { workspace } = await getActiveMembership();
   if (!workspace.is_demo) return null;
-  return <DemoBanner referenceDate={getReferenceDate(workspace)} />;
+  return <DemoBanner referenceDate={getReferenceDate(workspace)} local={isDemoMode} />;
 }
 
 export async function UserBlock() {
@@ -27,7 +28,7 @@ export async function UserBlock() {
         {user?.email}
       </span>
       <form action={signOut}>
-        <button type="submit" className="text-xs text-nav-muted hover:text-nav-foreground focus-visible:outline-2 focus-visible:outline-ring">
+        <button type="submit" className="shrink-0 text-xs whitespace-nowrap text-nav-muted hover:text-nav-foreground focus-visible:outline-2 focus-visible:outline-ring">
           Sign out
         </button>
       </form>
