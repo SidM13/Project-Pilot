@@ -1,26 +1,118 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * ProjectPilot design tokens. Light theme only for the prototype.
+ * One accent (blue); semantic colors are reserved for status.
+ */
 
 @theme inline {
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-source-serif);
+  --font-mono: var(--font-plex-mono);
+  --font-heading: var(--font-serif);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-subtle: var(--subtle);
+  --color-nav: var(--nav);
+  --color-nav-foreground: var(--nav-foreground);
+  --color-nav-muted: var(--nav-muted);
+  --color-nav-hover: var(--nav-hover);
+  --color-nav-active: var(--nav-active);
+  --color-critical: var(--critical);
+  --color-critical-soft: var(--critical-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-healthy: var(--healthy);
+  --color-healthy-soft: var(--healthy-soft);
+  --color-info-soft: var(--info-soft);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --background: #f7f6f3;        /* canvas */
+  --foreground: #1c1b19;
+  --card: #ffffff;              /* surface */
+  --card-foreground: #1c1b19;
+  --popover: #ffffff;
+  --popover-foreground: #1c1b19;
+  --primary: #2457c5;           /* the only accent */
+  --primary-foreground: #ffffff;
+  --secondary: #efede8;
+  --secondary-foreground: #1c1b19;
+  --muted: #f1efea;
+  --muted-foreground: #66635d;  /* 5.4:1 on canvas */
+  --accent: #efede8;
+  --accent-foreground: #1c1b19;
+  --destructive: #b42318;
+  --border: #e4e2dd;
+  --input: #d6d3cc;
+  --ring: #2457c5;
+  --radius: 6px;
+
+  --subtle: #fbfaf8;            /* table headers, inset panels */
+  --nav: #1e1f22;
+  --nav-foreground: #f2f1ee;
+  --nav-muted: #a8a6a1;
+  --nav-hover: #2a2b2f;
+  --nav-active: #34353a;
+
+  --critical: #b42318;
+  --critical-soft: #fdf1ef;
+  --warning: #a8480a;
+  --warning-soft: #fdf4e8;
+  --healthy: #2a7148;
+  --healthy-soft: #eef6f0;
+  --info-soft: #eef3fc;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    font-feature-settings: "cv11", "ss01";
+  }
+  body {
+    @apply bg-background text-foreground text-sm antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
