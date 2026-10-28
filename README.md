@@ -2,7 +2,14 @@
 
 **Know what is at risk. Decide what to do next.**
 
-Decision intelligence for project leads at consulting and professional-services firms. ProjectPilot turns task, effort, capacity and spend records into ranked decisions — each with its evidence, its calculated impact and a rule-based recommended action. All figures come from deterministic, tested TypeScript; AI (Stage 4) only explains.
+AI-powered project tracking and decision support for project managers running **Waterfall** and **Agile** projects. ProjectPilot turns tasks, hours, capacity and spend into clear answers — what is at risk, what it will cost, who is overloaded and what to do next — with the arithmetic shown. All figures come from deterministic, tested TypeScript; Gemini only explains them.
+
+**Navigation:** Home · Projects (Overview, Tasks, Timeline, Budget, Team) · AI Copilot · Reports.
+- **Waterfall:** phases and milestones, dependencies, Gantt chart with baseline and forecast overrun, critical path.
+- **Agile:** backlog, sprints with goals, story points, sprint board, velocity and over-commitment warnings, releases.
+- **Budget:** planned, actual, remaining and projected completion cost; task-level planned cost and cost to complete.
+- **Team:** roles, hourly cost, capacity, workload across projects, scheduling conflicts.
+- **AI Copilot:** ask about deadline risk, budget, priorities, workload, cost reduction, milestone delays or a weekly summary. Each answer separates confirmed facts, forecasts and assumptions; Gemini's explanation is grounded in those figures.
 
 - How every number is produced: [`docs/calculations.md`](docs/calculations.md)
 - Architecture, stages and known limitations: [`docs/architecture.md`](docs/architecture.md)
@@ -23,7 +30,8 @@ A separate static build of the demo is published at **https://sidm13.github.io/P
 
 - Built with `npm run build:pages` (`NEXT_BUILD_TARGET=pages`): a static export under `/Project-Pilot/`. Only `*.static.tsx` route files are routes; server routes, the proxy and server actions are not in this build.
 - Data lives only in the visitor's browser (localStorage), seeded from the same demo dataset. "Reset demo data" restores it.
-- No Supabase and no Gemini: their variables are forced empty, live AI is off, and two clearly labelled pre-generated Gemini examples are shown only for the flagship scenario on unmodified data.
+- No Supabase and no Gemini: their variables are forced empty and live AI is off. The AI Copilot still answers every question from the engine (labelled "AI explanation off"); two clearly labelled pre-generated Gemini examples are shown only for the flagship What-if scenario on unmodified data.
+- Returning visitors get the new demo data automatically (storage key `projectpilot-demo-v2`).
 - `npm run preview:pages` serves `out/` at http://localhost:4000/Project-Pilot/ for a local check.
 - `.github/workflows/pages.yml` deploys on every push to `main` after the secret scans (repository history and generated site), tests, typecheck, lint and build all pass. It uses no secrets. One-time setup: repository **Settings → Pages → Source: GitHub Actions**.
 
@@ -50,7 +58,7 @@ Requirements: Node 22+, a Supabase project (free tier is fine). Set `PROJECTPILO
 ## Verify
 
 ```bash
-npm test                 # engine unit + demo-scenario tests
+npm test                 # engine, planning, Copilot, demo-scenario and server-action tests
 npm run typecheck
 npm run lint
 npm run build            # also checks Cache Components / Suspense rules

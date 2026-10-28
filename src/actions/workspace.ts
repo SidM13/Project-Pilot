@@ -21,7 +21,7 @@ export async function switchWorkspace(workspaceId: string): Promise<ActionResult
   } catch (e) {
     return fail(e);
   }
-  redirect("/command-center");
+  redirect("/home");
 }
 
 export async function createWorkspace(_: unknown, formData: FormData): Promise<ActionResult> {
@@ -36,7 +36,7 @@ export async function createWorkspace(_: unknown, formData: FormData): Promise<A
   } catch (e) {
     return fail(e);
   }
-  redirect("/command-center");
+  redirect("/home");
 }
 
 /** Restores the demo workspace to its seeded state. Only works on is_demo workspaces (enforced in SQL). */

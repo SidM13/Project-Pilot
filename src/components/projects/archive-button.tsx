@@ -23,7 +23,7 @@ export function ArchiveButton({ projectId, archived }: { projectId: string; arch
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Archive this project?</AlertDialogTitle>
-          <AlertDialogDescription>It leaves the Command Center and team-load calculations. All records are kept and you can restore it at any time.</AlertDialogDescription>
+          <AlertDialogDescription>It leaves Home, the AI Copilot and team-load calculations. All records are kept and you can restore it at any time.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>

@@ -44,7 +44,8 @@ Next.js 16 App Router (Cache Components on), TypeScript strict, Tailwind v4, sha
 - `params`/`searchParams` are promises; use the global `PageProps<"/route">` / `LayoutProps<"/route">` types (`npm run typecheck` regenerates them).
 
 ## Design system
-- Tokens in `src/app/globals.css`: canvas `#F7F6F3`, surface white, charcoal nav, single accent `#2457C5`, semantic critical/warning/healthy (+ `-soft` backgrounds). Light theme only.
+- Tokens in `src/app/globals.css`: canvas `#F7F6F3`, surface white, warm light sidebar (`--nav`), single accent `#2457C5`, semantic critical/warning/healthy (+ `-soft` backgrounds). Light theme only.
+- Navigation is four items (`nav-items.ts`): Home, Projects, AI Copilot, Reports. Project tabs: Overview, Tasks, Timeline, Budget, Team. Progressive disclosure: most important first, details behind `<details>` or a view switch.
 - Inter (UI, `tabular` utility for figures), Source Serif 4 (`font-serif`, page titles only), IBM Plex Mono (dates/ids, sparingly).
 - Building blocks in `src/components/system`: `Panel`, `PageHeader`, `MetricStrip`, `Pill`/`SeverityPill`/`HealthPill`/`TaskStatusPill`, `EvidenceList`, `EmptyState`, `SourceLabel`, `Field`, `NativeSelect`, `useActionForm`.
 - 6px control radius, 8px panels, 1px borders, no card shadows, no gradients/glow/emoji. Icons only where they carry meaning.
@@ -52,6 +53,7 @@ Next.js 16 App Router (Cache Components on), TypeScript strict, Tailwind v4, sha
 ## Demo
 - Demo workspace (`is_demo`) is seeded by `seed_demo_workspace()` in `supabase/migrations/0002_demo_seed.sql`, dates relative to `reference_date` (default 2026-11-16, Monday).
 - `src/lib/engine/__tests__/fixtures.ts → demoSnapshot()` mirrors that seed; `demo-scenario.test.ts` asserts the narrative (ERP blocker ranked first, Website at risk via Maya's overload, Ops healthy with thin headroom). Change both together.
+- Website Migration is the Agile sample (four sprints, Sprint 3 overcommitted vs velocity); ERP and Operations are Waterfall with baselines. Migration 0007 wraps the 0002 seed to add these; keep `dataset.ts` and 0007 in sync.
 
 ## Commands
 `npm run dev` · `npm test` · `npm run typecheck` · `npm run lint` · `npm run build` · `npm run db:push` · `npm run demo:setup` · `npm run verify:security`

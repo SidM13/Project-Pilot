@@ -20,7 +20,7 @@ export function TeamView({ snapshot, analysis }: Awaited<ReturnType<typeof loadT
     <>
       <PageHeader
         eyebrow={snapshot.workspace.name}
-        title="Team & capacity"
+        title="People & capacity"
         description={`Load = remaining hours assigned in ${formatShortDate(window.start)}–${formatShortDate(window.end)} (${window.workingDays} working days) ÷ capacity in that window. Hours of tasks that extend past the window are spread evenly across their working days.`}
         actions={<MemberDialog disciplines={disciplines} />}
       />

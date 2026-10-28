@@ -2,7 +2,7 @@ import { signOut } from "@/actions/auth";
 
 export function UserBlockView({ email, signOutLabel = "Sign out" }: { email: string; signOutLabel?: string }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-t border-white/10 px-5 py-3">
+    <div className="flex items-center justify-between gap-2 border-t px-5 py-3">
       <span className="truncate text-xs text-nav-muted" title={email}>
         {email}
       </span>

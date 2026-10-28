@@ -16,6 +16,8 @@ import { applySimulation, saveSimulation } from "@/actions/simulations";
 import { explainSimulation, generateBrief, updateBrief } from "@/actions/ai";
 import { resetDemoWorkspace } from "@/actions/workspace";
 import { addBudgetEntry } from "@/actions/budget";
+import { assignTask, createSprint, deleteSprint, moveTask, setBaseline } from "@/actions/planning";
+import { askCopilot, explainCopilot } from "@/actions/copilot";
 import { getActiveMembership, loadWorkspaceSnapshot } from "@/lib/data/workspace";
 import { analyzeWorkspace } from "@/lib/engine";
 import { demoState } from "../store";
@@ -106,6 +108,48 @@ describe("demo flow through real server actions", () => {
     expect(edited).toEqual({ ok: true });
     expect(brief).toMatchObject({ title: "ERP decision", ai_meta: { edited: true } });
     expect(JSON.stringify(brief.facts)).toBe(facts);
+  });
+
+  it("runs Agile planning: sprints, board moves and backlog, without losing task data", async () => {
+    const web = await projectId("Client Website Migration");
+    expect((await fresh()).projects.find((p) => p.id === web)!.methodology).toBe("agile");
+    const sp = await createSprint(web, { name: "Sprint 5", goal: "Hypercare", start_date: "2026-12-14", end_date: "2026-12-25" });
+    expect(sp.ok).toBe(true);
+    const sid = (sp as { data: { id: string } }).data.id;
+    expect(await createSprint(web, { name: "Bad", goal: "", start_date: "2026-12-10", end_date: "2026-12-01" })).toMatchObject({ ok: false, fieldErrors: { end_date: expect.any(String) } });
+
+    const redirects = await taskId("Redirect map & SEO checks");
+    const before = (await fresh()).tasks.find((t) => t.id === redirects)!;
+    expect((await moveTask(redirects, { sprintId: sid, status: "in_progress" })).ok).toBe(true);
+    const moved = (await fresh()).tasks.find((t) => t.id === redirects)!;
+    expect(moved).toMatchObject({ sprint_id: sid, status: "in_progress", story_points: before.story_points, planned_hours: before.planned_hours });
+
+    // Deleting the sprint returns its work to the backlog; nothing is deleted.
+    expect((await deleteSprint(sid)).ok).toBe(true);
+    expect((await fresh()).tasks.find((t) => t.id === redirects)!.sprint_id).toBeNull();
+
+    // A task cannot join another project's sprint.
+    const erpSprint = await createSprint(await projectId("Client ERP Implementation"), { name: "Not agile", goal: "", start_date: "2026-11-16", end_date: "2026-11-27" });
+    expect((await moveTask(redirects, { sprintId: (erpSprint as { data: { id: string } }).data.id })).ok).toBe(false);
+  });
+
+  it("captures a Waterfall baseline and reassigns work", async () => {
+    const ops = await projectId("Operations Process Improvement");
+    const r = await setBaseline(ops);
+    expect(r.ok).toBe(true);
+    for (const t of (await fresh()).tasks.filter((x) => x.project_id === ops)) expect([t.baseline_start, t.baseline_due]).toEqual([t.start_date, t.due_date]);
+    const dash = await taskId("Dispatch reporting dashboard");
+    expect((await assignTask(dash, await memberId("Jordan Ruiz"))).ok).toBe(true);
+    expect((await fresh()).tasks.find((t) => t.id === dash)!.assignee_id).toBe(await memberId("Jordan Ruiz"));
+  });
+
+  it("answers Copilot questions from records and degrades gracefully without AI", async () => {
+    const r = await askCopilot({ question: "Which team members are overloaded?" });
+    expect(r).toMatchObject({ ok: true, answer: { query: { intent: "overloaded" } } });
+    expect(await askCopilot({ question: "What is the capital of France?" })).toMatchObject({ ok: true, answer: null, unrecognised: true });
+    expect(await askCopilot({ query: { intent: "delay" } })).toEqual({ ok: false, error: "Choose a milestone to model the delay." });
+    const ai = await explainCopilot({ query: { intent: "at_risk" } });
+    expect(ai).toMatchObject({ ok: false, error: { kind: "not_configured" } });
   });
 
   it("resets the demo workspace to the seeded scenario", async () => {

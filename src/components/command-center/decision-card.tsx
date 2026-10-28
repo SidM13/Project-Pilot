@@ -15,7 +15,8 @@ function simulatorHref(d: Decision) {
   return `/simulator?${q}`;
 }
 
-export function DecisionCard({ decision, rank }: { decision: Decision; rank: number }) {
+/** One ranked decision. Problem and impact first; evidence and the recommended action open on demand. */
+export function DecisionCard({ decision, rank, defaultOpen = false }: { decision: Decision; rank: number; defaultOpen?: boolean }) {
   const extra = decision.evidence.length - EVIDENCE_PREVIEW;
   return (
     <article
@@ -38,7 +39,12 @@ export function DecisionCard({ decision, rank }: { decision: Decision; rank: num
         {decision.impact && <p className="mt-1 text-[13px] text-foreground/80">{decision.impact.label}</p>}
       </div>
 
-      <div className="grid gap-1.5">
+      <details className="group/why grid gap-3" open={defaultOpen}>
+        <summary className="inline-flex w-fit cursor-pointer list-none items-center gap-1 text-xs font-medium text-primary hover:underline underline-offset-2 [&::-webkit-details-marker]:hidden">
+          <span className="group-open/why:hidden">Why, and what to do</span>
+          <span className="hidden group-open/why:inline">Hide details</span>
+        </summary>
+      <div className="mt-3 grid gap-1.5">
         <SourceLabel>Evidence</SourceLabel>
         <EvidenceList evidence={decision.evidence} projectId={decision.projectId} limit={EVIDENCE_PREVIEW} />
         {extra > 0 && (
@@ -54,19 +60,20 @@ export function DecisionCard({ decision, rank }: { decision: Decision; rank: num
         )}
       </div>
 
-      <div className="rounded-md border bg-subtle px-3 py-2.5">
+      <div className="mt-3 rounded-md border bg-subtle px-3 py-2.5">
         <SourceLabel>Recommended action · rule-based</SourceLabel>
         <p className="mt-1 text-[13px] leading-5">{decision.action}</p>
       </div>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="mt-3 flex flex-wrap gap-4">
         <Link href={projectHref(decision.projectId)} className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline underline-offset-2">
           Open project <ArrowRight className="size-3" />
         </Link>
         <Link href={simulatorHref(decision)} className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline underline-offset-2">
-          {decision.simulation ? "Simulate this action" : "Simulate options"} <ArrowRight className="size-3" />
+          {decision.simulation ? "Model this action in What-if" : "Explore options in What-if"} <ArrowRight className="size-3" />
         </Link>
       </div>
+      </details>
     </article>
   );
 }

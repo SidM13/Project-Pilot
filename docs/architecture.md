@@ -3,8 +3,11 @@
 ## Who it is for
 Project managers and operations leads at small consulting / professional-services firms running several client projects with tight capacity and budgets. Task tools show *status*; ProjectPilot answers *what is at risk, why, what it costs, and which action helps most* — with the arithmetic shown.
 
+## Navigation
+Four destinations: **Home** (portfolio, attention list, deadlines, budget warnings, workload) · **Projects** (Waterfall and Agile; each with Overview, Tasks, Timeline, Budget, Team tabs) · **AI Copilot** (questions answered by the engine and explained by Gemini; the What-if planner) · **Reports** (portfolio status summary, project briefs, PDF). Risk analysis (`/risk`), People (`/team`) and the What-if planner (`/simulator`) are reached from those pages. `/command-center` redirects to `/home`.
+
 ## Core workflow (five-minute demo)
-1. **Command Center** ranks decisions across projects → ERP Implementation is first: vendor integration blocked until Kestrel's committed date, so "Data migration complete" is forecast 7 working days late (it would hold if cleared by Nov 17).
+1. **Home** ranks decisions across projects → ERP Implementation is first: vendor integration blocked until Kestrel's committed date, so "Data migration complete" is forecast 7 working days late (it would hold if cleared by Nov 17).
 2. **Evidence**: open the project — facts (tasks, hours, spend) and calculated findings are shown separately, each finding citing its records.
 3. **Decision Simulator** *(Stage 3)*: reassign work, move a deadline or cut scope on a copy of the plan.
 4. **Compare** current vs proposed: completion date, schedule variance, cost, budget variance, tasks at risk, assumptions.
@@ -21,7 +24,7 @@ Browser ─▶ Next.js 16 App Router (RSC + client islands, proxy.ts session ref
 ```
 
 ## Schema (Stage 1)
-`workspaces`, `workspace_members`, `team_members`, `projects`, `milestones`, `tasks`, `task_dependencies`, `budget_entries`, `activity_events`. Composite FKs keep every child row in its parent's workspace; a trigger rejects circular dependencies. Migration 0006 restricts updatable columns (workspace demo flag/reference date, brief facts, append-only tables). Later stages add only `risk_snapshots` (2, migration 0003), `simulations` + `tasks.deferred_at` (3, migration 0004), `ai_explanations` + `decision_briefs` (4).
+`workspaces`, `workspace_members`, `team_members`, `projects`, `milestones`, `tasks`, `task_dependencies`, `budget_entries`, `activity_events`. Composite FKs keep every child row in its parent's workspace; a trigger rejects circular dependencies. Migration 0006 restricts updatable columns (workspace demo flag/reference date, brief facts, append-only tables). Later stages add only `risk_snapshots` (2, migration 0003), `simulations` + `tasks.deferred_at` (3, migration 0004), `ai_explanations` + `decision_briefs` (4), and `projects.methodology`, `sprints`, `tasks.story_points / sprint_id / baseline_start / baseline_due` plus Copilot rows in `ai_explanations` (6, migration 0007).
 
 ## Stages
 | Stage | Scope | Status |
@@ -31,6 +34,7 @@ Browser ─▶ Next.js 16 App Router (RSC + client islands, proxy.ts session ref
 | 3 Decision Simulator | Reallocation / deadline / scope scenarios on a cloned snapshot, side-by-side comparison, saved simulations, approve-to-apply, reversible deferral | **Done** (DB verification pending) |
 | 4 AI layer | Gemini provider abstraction, grounded explanations with Zod-validated JSON, figure-grounding check, caching, rate limits, decision brief generator (edit / copy / PDF) | **Done** (DB + live Gemini verification pending) |
 | 5 Demo-ready prototype | Local demo mode (in-memory Supabase-compatible adapter seeded from one TypeScript dataset), end-to-end action tests, browser walkthrough, PDF verification, responsive check | **Done** |
+| 6 Redesign + methodology | Four-item navigation and light theme; Waterfall (phases, Gantt, baseline, critical path) and Agile (sprints, story points, board, backlog, velocity) on one task model; task-level cost; project Team tab with conflicts; AI Copilot (intent engine + grounded Gemini explanation); portfolio status summary (migration 0007) | **Done** (DB + live Gemini verification pending) |
 
 ## Public static demo (GitHub Pages)
 A second build target exports the demo as static files for GitHub Pages. Pages are split into shared loaders and views; in the static build the loaders run in the browser against the same demo store (persisted to localStorage), and the generated, directive-free copies of the server actions run the same validated logic locally. Supabase and Gemini are unreachable from this build by construction; secret scans gate deployment.

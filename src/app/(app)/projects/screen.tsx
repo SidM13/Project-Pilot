@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { analyzeProject, isLiveProject } from "@/lib/engine";
 import { getAnalysis } from "@/lib/data/analysis";
-import { formatDate, formatMoney, formatSigned } from "@/lib/format";
-import { PROJECT_STATUS_LABELS } from "@/lib/types";
+import { formatMoney, formatShortDate } from "@/lib/format";
+import { METHODOLOGY_LABELS, PROJECT_STATUS_LABELS } from "@/lib/types";
 import { PageHeader } from "@/components/system/page-header";
 import { EmptyState } from "@/components/system/states";
 import { HealthPill, Pill } from "@/components/system/status";
 import { NewProjectButton } from "@/components/projects/project-form";
+import { ProgressBar } from "@/components/system/progress-bar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { projectHref } from "@/lib/routes";
@@ -30,7 +31,17 @@ export function ProjectsView({ view, snapshot, analysis }: Awaited<ReturnType<ty
 
   return (
     <>
-      <PageHeader title="Projects" eyebrow={snapshot.workspace.name} actions={<NewProjectButton members={snapshot.members} />} />
+      <PageHeader
+        title="Projects"
+        eyebrow={snapshot.workspace.name}
+        description="Every Waterfall and Agile project, with its forecast finish and budget calculated from its tasks."
+        actions={
+          <>
+            <Link href="/team" className="inline-flex h-8 items-center rounded-md border border-input bg-card px-3 text-[13px] font-medium hover:bg-muted">People</Link>
+            <NewProjectButton members={snapshot.members} />
+          </>
+        }
+      />
 
       <div className="mb-3 flex gap-1 text-[13px]" role="tablist" aria-label="Project filter">
         {(["active", "archived"] as const).map((v) => (
@@ -58,12 +69,12 @@ export function ProjectsView({ view, snapshot, analysis }: Awaited<ReturnType<ty
             <TableHeader>
               <TableRow className="bg-subtle text-xs">
                 <TableHead>Project</TableHead>
-                <TableHead>Owner</TableHead>
+                <TableHead>Method</TableHead>
+                <TableHead>Manager</TableHead>
                 <TableHead>Health</TableHead>
-                <TableHead className="text-right">Progress</TableHead>
-                <TableHead className="text-right">Schedule var.</TableHead>
-                <TableHead className="text-right">Budget var.</TableHead>
-                <TableHead>Target</TableHead>
+                <TableHead>Progress</TableHead>
+                <TableHead>Target → forecast</TableHead>
+                <TableHead className="text-right">Budget</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -74,14 +85,23 @@ export function ProjectsView({ view, snapshot, analysis }: Awaited<ReturnType<ty
                     <Link href={projectHref(p.project.id)} className="block truncate font-medium hover:underline underline-offset-2">{p.project.name}</Link>
                     <span className="block truncate text-xs text-muted-foreground">{p.project.client_name || "No client"}</span>
                   </TableCell>
-                  <TableCell>{p.project.owner_member_id ? members.get(p.project.owner_member_id) : <span className="text-muted-foreground">Unassigned</span>}</TableCell>
+                  <TableCell><Pill>{METHODOLOGY_LABELS[p.project.methodology]}</Pill></TableCell>
+                  <TableCell>{p.project.owner_member_id ? members.get(p.project.owner_member_id) : <span className="text-muted-foreground">Not set</span>}</TableCell>
                   <TableCell><HealthPill status={p.health.status} score={p.health.score} /></TableCell>
-                  <TableCell className="tabular text-right">{p.progress.percent}%</TableCell>
-                  <TableCell className={cn("tabular text-right", p.schedule.variancePoints < -10 && "text-warning")}>{formatSigned(p.schedule.variancePoints, " pts")}</TableCell>
-                  <TableCell className={cn("tabular text-right", p.cost.variance < 0 && "text-critical")}>
-                    {p.cost.budget > 0 ? `${p.cost.variance < 0 ? "−" : "+"}${formatMoney(Math.abs(p.cost.variance), currency)}` : <span className="text-muted-foreground">No budget</span>}
+                  <TableCell>
+                    <span className="flex w-32 items-center gap-2">
+                      <ProgressBar value={p.progress.percent} label={`${p.progress.percent}% complete`} />
+                      <span className="tabular w-8 text-right text-xs text-muted-foreground">{p.progress.percent}%</span>
+                    </span>
                   </TableCell>
-                  <TableCell className="tabular">{formatDate(p.project.target_date)}</TableCell>
+                  <TableCell className="tabular whitespace-nowrap">
+                    {formatShortDate(p.project.target_date)}
+                    <span className="text-muted-foreground"> → </span>
+                    <span className={cn((p.forecastFinish?.slipWorkingDays ?? 0) > 0 && "font-medium text-critical")}>{p.forecastFinish ? (p.forecastFinish.finish ? formatShortDate(p.forecastFinish.finish) : "unknown") : "done"}</span>
+                  </TableCell>
+                  <TableCell className={cn("tabular text-right whitespace-nowrap", p.cost.variance < 0 && "text-critical")}>
+                    {p.cost.budget > 0 ? (p.cost.variance < 0 ? `${formatMoney(-p.cost.variance, currency)} over` : `${formatMoney(p.cost.variance, currency)} under`) : <span className="text-muted-foreground">No budget</span>}
+                  </TableCell>
                   <TableCell>
                     {p.project.archived_at ? <Pill>Archived</Pill> : <Pill>{PROJECT_STATUS_LABELS[p.project.status]}</Pill>}
                   </TableCell>
@@ -92,7 +112,7 @@ export function ProjectsView({ view, snapshot, analysis }: Awaited<ReturnType<ty
         </div>
       )}
       <p className="mt-3 text-xs text-muted-foreground">
-        Schedule variance = % of planned effort complete − % of schedule elapsed. Budget variance = budget − forecast cost at completion.
+        Forecast = capacity-based finish date from remaining hours, owners and dependencies. Budget = approved budget − projected cost at completion.
       </p>
     </>
   );

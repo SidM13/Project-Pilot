@@ -42,7 +42,7 @@ function Screen<T>({ load, render, fallback, onError }: ScreenProps<T>) {
         <p className="mt-2 text-[13px] text-muted-foreground">
           {notFound ? "It may have been deleted, or the demo data in this browser was reset." : "Something went wrong reading the demo data in this browser."}
         </p>
-        <Link href="/command-center" className="mt-4 inline-block text-[13px] font-medium text-primary hover:underline">Back to the Command Center</Link>
+        <Link href="/home" className="mt-4 inline-block text-[13px] font-medium text-primary hover:underline">Back to Home</Link>
       </div>
     );
   }

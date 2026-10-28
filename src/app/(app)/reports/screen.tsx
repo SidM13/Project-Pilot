@@ -30,9 +30,17 @@ export function ReportsView({ snapshot, projects, projectId, briefs, simulations
     <>
       <PageHeader
         eyebrow={snapshot.workspace.name}
-        title="Decision briefs"
-        description="Executive-ready briefs that separate calculated facts from AI-drafted narrative. Review, edit, copy or export each one."
+        title="Reports"
+        description="Status summaries and executive briefs built from calculated figures. Review, edit, copy or download each one as a PDF."
       />
+      <Link href="/reports/summary" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 hover:border-input hover:bg-subtle">
+        <span>
+          <span className="block text-[13.5px] font-medium">Portfolio status summary</span>
+          <span className="block text-xs text-muted-foreground">One page covering every active project — health, forecast finish, budget and decisions needed. Ready to print or save as PDF.</span>
+        </span>
+        <span className="text-xs font-medium text-primary">Open summary →</span>
+      </Link>
+      <h2 className="mb-3 text-[15px] font-semibold tracking-tight">Project briefs</h2>
       <div className="grid items-start gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
         <Panel title="New brief">
           {projectId ? (

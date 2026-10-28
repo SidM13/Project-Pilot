@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // Bump when prompts or schemas change: the version is part of the cache key.
-export const PROMPT_VERSION = "s4.2";
+export const PROMPT_VERSION = "s6.1";
 
 const RULES = [
   "You are a project-delivery analyst at a professional-services firm writing for an engagement lead.",
@@ -70,5 +70,32 @@ export function briefPrompt(facts: unknown) {
     "executiveSummary: 3–4 sentences on status, the main issue and the decision required. recommendation: the recommended course of action and why, drawing on the listed decisions and (if present) the simulated scenario. risks: up to 5 risks or caveats, including stated assumptions. clientMessage: a short, factual note the lead could send the client — no blame, no promises beyond the forecast.",
     "Facts JSON:",
     JSON.stringify(facts),
+  ].join("\n");
+}
+
+// ── AI Copilot ────────────────────────────────────────────────────────────────
+
+export const copilotExplanationSchema = z.object({
+  answer: z.string().min(1).max(900),
+  risks: z.array(z.string().min(1).max(400)).max(3),
+  tradeOffs: z.array(z.string().min(1).max(400)).max(3),
+  nextSteps: z.array(z.string().min(1).max(400)).max(3),
+});
+export type CopilotExplanation = z.infer<typeof copilotExplanationSchema>;
+
+export const copilotExplanationJsonSchema = {
+  type: "OBJECT",
+  properties: { answer: str, risks: strList(3), tradeOffs: strList(3), nextSteps: strList(3) },
+  required: ["answer", "risks", "tradeOffs", "nextSteps"],
+};
+
+export function copilotPrompt(context: unknown) {
+  return [
+    "A project manager asked the question below. The calculated answer is in the context: facts are recorded data, forecasts are engine calculations, assumptions are stated limits, recommendations are rule-based.",
+    "answer: 2–4 sentences that answer the question directly for a first-time project manager, in plain language. Say which figures are forecasts. Under 500 characters.",
+    "risks: up to 3 risks or caveats drawn from the forecasts and assumptions. tradeOffs: up to 3 explicit gains versus costs of the recommended actions. nextSteps: up to 3 concrete actions, based on the recommendations. Each item under 220 characters.",
+    "If the context does not contain what the question asks, say so in the answer instead of guessing.",
+    "Context JSON:",
+    JSON.stringify(context),
   ].join("\n");
 }

@@ -14,7 +14,7 @@ const reset = () => {
 async function snapshot(): Promise<WorkspaceSnapshot> {
   const all = async (t: string) => (await db.from(t).select("*").eq("workspace_id", ws)).data as never[];
   const { data: workspace } = await db.from("workspaces").select("*").eq("id", ws).single();
-  return { workspace: workspace as never, members: await all("team_members"), projects: await all("projects"), milestones: await all("milestones"), tasks: await all("tasks"), dependencies: await all("task_dependencies"), budgetEntries: await all("budget_entries") };
+  return { workspace: workspace as never, members: await all("team_members"), projects: await all("projects"), milestones: await all("milestones"), sprints: await all("sprints"), tasks: await all("tasks"), dependencies: await all("task_dependencies"), budgetEntries: await all("budget_entries") };
 }
 
 describe("demo store", () => {

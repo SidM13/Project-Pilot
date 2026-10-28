@@ -2,7 +2,7 @@
 // (/projects/<id>/tasks); the static GitHub Pages demo cannot pre-render pages for ids
 // created in the visitor's browser, so it uses query links (/projects/view/tasks/?id=).
 
-export type ProjectTab = "tasks" | "milestones" | "budget" | "activity";
+export type ProjectTab = "tasks" | "timeline" | "budget" | "team";
 
 const STATIC = process.env.NEXT_PUBLIC_STATIC_DEMO === "1";
 

@@ -41,7 +41,9 @@ function gate(request: NextRequest, response: NextResponse, signedIn: boolean) {
     return res;
   };
 
+  // The portfolio overview moved from /command-center to /home; keep old links working.
+  if (pathname === "/command-center" || pathname.startsWith("/command-center/")) return redirectTo(signedIn ? "/home" : "/login");
   if (!signedIn && !isPublic) return redirectTo("/login");
-  if (signedIn && (pathname === "/" || pathname === "/login" || pathname === "/signup")) return redirectTo("/command-center");
+  if (signedIn && (pathname === "/" || pathname === "/login" || pathname === "/signup")) return redirectTo("/home");
   return response;
 }

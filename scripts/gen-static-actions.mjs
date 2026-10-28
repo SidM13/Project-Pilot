@@ -4,7 +4,7 @@
 // in-browser demo store, so the same validated action logic runs locally.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
-const ACTIONS = ["shared", "projects", "tasks", "milestones", "budget", "team", "simulations", "ai"];
+const ACTIONS = ["shared", "projects", "tasks", "milestones", "budget", "team", "simulations", "ai", "planning", "copilot"];
 const OUT = "src/static/generated/actions";
 mkdirSync(OUT, { recursive: true });
 for (const name of ACTIONS) {

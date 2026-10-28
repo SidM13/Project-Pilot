@@ -22,7 +22,7 @@ export interface MilestoneRow {
   atRisk: boolean;
 }
 
-function MilestoneForm({ projectId, milestone, onDone }: { projectId: string; milestone?: Milestone; onDone: () => void }) {
+function MilestoneForm({ projectId, milestone, onDone, noun }: { projectId: string; milestone?: Milestone; onDone: () => void; noun: string }) {
   const [name, setName] = useState(milestone?.name ?? "");
   const [due, setDue] = useState(milestone?.due_date ?? "");
   const { pending, errors, submit } = useActionForm();
@@ -34,12 +34,12 @@ function MilestoneForm({ projectId, milestone, onDone }: { projectId: string; mi
         e.preventDefault();
         const input = { name, due_date: due };
         submit(() => (milestone ? updateMilestone(milestone.id, input) : createMilestone(projectId, input)), {
-          success: milestone ? "Milestone updated" : "Milestone added",
+          success: milestone ? `${cap(noun)} updated` : `${cap(noun)} added`,
           onSuccess: onDone,
         });
       }}
     >
-      <Field label="Milestone" htmlFor={`ms-name-${milestone?.id ?? "new"}`} error={errors.name}>
+      <Field label={cap(noun)} htmlFor={`ms-name-${milestone?.id ?? "new"}`} error={errors.name}>
         <Input id={`ms-name-${milestone?.id ?? "new"}`} value={name} onChange={(e) => setName(e.target.value)} maxLength={160} aria-invalid={!!errors.name} />
       </Field>
       <Field label="Due date" htmlFor={`ms-due-${milestone?.id ?? "new"}`} error={errors.due_date}>
@@ -53,7 +53,10 @@ function MilestoneForm({ projectId, milestone, onDone }: { projectId: string; mi
   );
 }
 
-export function MilestoneList({ projectId, rows }: { projectId: string; rows: MilestoneRow[] }) {
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Milestones (Waterfall phase gates) or releases (Agile). Same records, different noun. */
+export function MilestoneList({ projectId, rows, noun = "milestone" }: { projectId: string; rows: MilestoneRow[]; noun?: "milestone" | "release" }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const { pending, submit } = useActionForm();
@@ -61,22 +64,22 @@ export function MilestoneList({ projectId, rows }: { projectId: string; rows: Mi
   return (
     <div className="grid gap-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">Link tasks to a milestone from the task editor. At-risk status is calculated from linked work.</p>
-        {!adding && <Button onClick={() => setAdding(true)}><Plus /> New milestone</Button>}
+        <p className="text-xs text-muted-foreground">Link tasks to a {noun} from the task editor. At-risk status is calculated from linked work.</p>
+        {!adding && <Button variant="outline" onClick={() => setAdding(true)}><Plus /> New {noun}</Button>}
       </div>
       {adding && (
         <div className="rounded-lg border bg-card p-4">
-          <MilestoneForm projectId={projectId} onDone={() => setAdding(false)} />
+          <MilestoneForm projectId={projectId} noun={noun} onDone={() => setAdding(false)} />
         </div>
       )}
       {rows.length === 0 && !adding ? (
-        <EmptyState title="No milestones" description="Milestones mark client-visible commitments. The engine checks whether linked work can be finished before each one." />
+        <EmptyState title={`No ${noun}s yet`} description={noun === "release" ? "Releases mark when finished work ships. The engine checks whether linked work can be finished before each one." : "Milestones end each phase and mark client-visible commitments. The engine checks whether linked work can be finished before each one."} />
       ) : (
         <ul className="divide-y rounded-lg border bg-card">
           {rows.map(({ milestone: m, openTasks, remainingHours, daysUntil, atRisk }) => (
             <li key={m.id} id={`milestone-${m.id}`} className="scroll-mt-24 px-4 py-3 target:bg-info-soft">
               {editingId === m.id ? (
-                <MilestoneForm projectId={projectId} milestone={m} onDone={() => setEditingId(null)} />
+                <MilestoneForm projectId={projectId} milestone={m} noun={noun} onDone={() => setEditingId(null)} />
               ) : (
                 <div className="flex flex-wrap items-center gap-3">
                   <Checkbox
@@ -84,7 +87,7 @@ export function MilestoneList({ projectId, rows }: { projectId: string; rows: Mi
                     checked={!!m.completed_at}
                     disabled={pending}
                     aria-label={m.completed_at ? `Reopen ${m.name}` : `Mark ${m.name} complete`}
-                    onCheckedChange={(c) => submit(() => setMilestoneCompleted(m.id, c === true), { success: c ? "Milestone completed" : "Milestone reopened" })}
+                    onCheckedChange={(c) => submit(() => setMilestoneCompleted(m.id, c === true), { success: c ? `${cap(noun)} completed` : `${cap(noun)} reopened` })}
                   />
                   <div className="min-w-0 flex-1">
                     <p className={m.completed_at ? "text-[13px] text-muted-foreground line-through" : "text-[13px] font-medium"}>{m.name}</p>
@@ -113,7 +116,7 @@ export function MilestoneList({ projectId, rows }: { projectId: string; rows: Mi
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => submit(() => deleteMilestone(m.id), { success: "Milestone deleted" })}>Delete</AlertDialogAction>
+                        <AlertDialogAction onClick={() => submit(() => deleteMilestone(m.id), { success: `${cap(noun)} deleted` })}>Delete</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>

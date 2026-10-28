@@ -4,7 +4,7 @@ import { setDemoPersistence, type Tables } from "@/lib/demo/store";
 // Static (GitHub Pages) build: the "database" is the in-browser demo store, saved in
 // this visitor's localStorage. No network requests, no credentials.
 
-export const DEMO_STORAGE_KEY = "projectpilot-demo-v1";
+export const DEMO_STORAGE_KEY = "projectpilot-demo-v2"; // v2: methodology, sprints, story points, baselines
 
 if (typeof window !== "undefined") {
   setDemoPersistence({

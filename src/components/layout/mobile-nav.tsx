@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { NAV_ITEMS, SECONDARY_NAV_ITEMS } from "./nav-items";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { NAV_ITEMS } from "./nav-items";
 
 export function MobileNav() {
   return (
@@ -17,13 +17,10 @@ export function MobileNav() {
       <DropdownMenuContent align="end" className="w-52">
         {NAV_ITEMS.map((i) => (
           <DropdownMenuItem key={i.href} asChild>
-            <Link href={i.href}>{i.label}</Link>
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
-        {SECONDARY_NAV_ITEMS.map((i) => (
-          <DropdownMenuItem key={i.href} asChild>
-            <Link href={i.href}>{i.label}</Link>
+            <Link href={i.href} className="gap-2.5">
+              <i.icon aria-hidden className="size-4 text-muted-foreground" strokeWidth={1.75} />
+              {i.label}
+            </Link>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

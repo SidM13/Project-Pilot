@@ -2,6 +2,7 @@ import { getAnalysis } from "@/lib/data/analysis";
 import { getSimulations } from "@/lib/data/simulations";
 import { isAiConfigured } from "@/lib/ai";
 import { formatWeekdayDate } from "@/lib/format";
+import Link from "next/link";
 import { PageHeader } from "@/components/system/page-header";
 import { EmptyState } from "@/components/system/states";
 import { Simulator } from "@/components/simulator/simulator";
@@ -30,7 +31,7 @@ export function SimulatorView({ snapshot, analysis, ranked, projectId, saved, in
   if (!projectId) {
     return (
       <>
-        <PageHeader title="Decision Simulator" eyebrow={snapshot.workspace.name} />
+        <PageHeader title="What-if planner" eyebrow={<Link href="/copilot" className="hover:text-foreground hover:underline">AI Copilot</Link>} />
         <EmptyState title="No active projects to simulate" description="Create a project with tasks, owners and dates first." />
       </>
     );
@@ -39,9 +40,9 @@ export function SimulatorView({ snapshot, analysis, ranked, projectId, saved, in
   return (
     <>
       <PageHeader
-        eyebrow={`${snapshot.workspace.name} · as of ${formatWeekdayDate(analysis.referenceDate)}`}
-        title="Decision Simulator"
-        description="Test a corrective action on a copy of the plan and compare it with the current plan. Nothing changes until you approve it."
+        eyebrow={<><Link href="/copilot" className="hover:text-foreground hover:underline">AI Copilot</Link> / as of {formatWeekdayDate(analysis.referenceDate)}</>}
+        title="What-if planner"
+        description="Try a change — reassign work, move a date or defer scope — on a copy of the plan, and compare it with today's plan. Nothing changes until you approve it."
       />
       <Simulator
         key={projectId}

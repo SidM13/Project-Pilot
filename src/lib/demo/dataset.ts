@@ -1,4 +1,4 @@
-import type { ActivityEvent, BudgetEntry, Milestone, Project, Task, TaskDependency, TeamMember, Workspace } from "@/lib/types";
+import type { ActivityEvent, BudgetEntry, Methodology, Milestone, Project, Sprint, Task, TaskDependency, TeamMember, Workspace } from "@/lib/types";
 import { addDays } from "@/lib/engine/dates";
 
 // The Northwind Advisory demonstration portfolio — fictional clients and people.
@@ -16,6 +16,7 @@ export interface DemoDataset {
   members: TeamMember[];
   projects: Project[];
   milestones: Milestone[];
+  sprints: Sprint[];
   tasks: Task[];
   dependencies: (TaskDependency & { workspace_id: string })[];
   budgetEntries: (BudgetEntry & { workspace_id: string })[];
@@ -55,13 +56,13 @@ export function buildDemoDataset(options: DemoDatasetOptions = {}): DemoDataset 
     member("tom", "Tom Becker", "QA Analyst", "Quality", 24, 95),
   ];
 
-  const project = (key: string, name: string, client_name: string, description: string, owner: string, start: number, target: number, budget: number): Project => ({
-    id: id(key), workspace_id: ws, name, client_name, description, owner_member_id: id(owner), status: "active",
+  const project = (key: string, name: string, client_name: string, description: string, owner: string, start: number, target: number, budget: number, methodology: Methodology = "waterfall"): Project => ({
+    id: id(key), workspace_id: ws, name, client_name, description, owner_member_id: id(owner), status: "active", methodology,
     start_date: d(start), target_date: d(target), budget, archived_at: null, created_at: now, updated_at: now,
   });
   const projects = [
     project("erp", "Client ERP Implementation", "Halden Manufacturing", "Replace Halden's legacy inventory and finance system with a cloud ERP, including the Kestrel WMS integration and a full data migration.", "elena", -70, 32, 148000),
-    project("web", "Client Website Migration", "Brightline Health", "Move Brightline's 240-page patient website from a legacy CMS to a headless CMS with a new template system.", "maya", -42, 25, 64000),
+    project("web", "Client Website Migration", "Brightline Health", "Move Brightline's 240-page patient website from a legacy CMS to a headless CMS with a new template system.", "maya", -42, 25, 64000, "agile"),
     project("ops", "Operations Process Improvement", "Calder Logistics", "Redesign Calder's order-to-dispatch process, document the new SOPs and train three warehouse shifts.", "aisha", -49, 18, 31200),
   ];
 
@@ -81,9 +82,27 @@ export function buildDemoDataset(options: DemoDatasetOptions = {}): DemoDataset 
     milestone("ops_m3", "ops", "Rollout complete", 18),
   ];
 
-  type Row = [key: string, ms: string, title: string, status: Task["status"], priority: Task["priority"], critical: boolean, who: string, start: number, due: number, planned: number, actual: number, remaining: number | null, extra?: Partial<Pick<Task, "description" | "blocked_reason">> & { completed?: number; blockedUntil?: number }];
+  // Agile sample (Website): four sprints; points and sprint per task below. Null sprint = backlog.
+  const sprint = (key: string, name: string, goal: string, start: number, end: number): Sprint => ({
+    id: id(key), workspace_id: ws, project_id: id("web"), name, goal, start_date: d(start), end_date: d(end),
+  });
+  const sprints = [
+    sprint("web_s1", "Sprint 1", "Audit all 240 pages and agree the information architecture", -42, -22),
+    sprint("web_s2", "Sprint 2", "Approve the design system and page templates", -21, -1),
+    sprint("web_s3", "Sprint 3", "Staging site with all templates built and content migrated", 0, 13),
+    sprint("web_s4", "Sprint 4", "Pass accessibility QA and launch", 14, 27),
+  ];
+  const agile: Record<string, [points: number, sprintKey: string | null]> = {
+    w_audit: [5, "web_s1"], w_design: [8, "web_s2"], w_build: [13, "web_s3"], w_content: [8, "web_s3"],
+    w_forms: [5, "web_s3"], w_redirects: [3, null], w_qa: [5, "web_s4"], w_launch: [2, "web_s4"],
+  };
+
+  type Row = [key: string, ms: string, title: string, status: Task["status"], priority: Task["priority"], critical: boolean, who: string, start: number, due: number, planned: number, actual: number, remaining: number | null, extra?: Partial<Pick<Task, "description" | "blocked_reason">> & { completed?: number; blockedUntil?: number; baseline?: [start: number, due: number] }];
   const tasksFor = (projectKey: string, rows: Row[]) =>
     rows.map(([key, ms, title, status, priority, critical, who, start, due, planned, actual, remaining, extra = {}]): Task => ({
+      ...(projectKey === "web"
+        ? { story_points: agile[key][0], sprint_id: agile[key][1] && id(agile[key][1]!), baseline_start: null, baseline_due: null }
+        : { story_points: null, sprint_id: null, baseline_start: d(extra.baseline?.[0] ?? start), baseline_due: d(extra.baseline?.[1] ?? due) }),
       id: id(key), workspace_id: ws, project_id: id(projectKey), milestone_id: id(ms), title, description: extra.description ?? "", status, priority,
       is_critical: critical, assignee_id: id(who), start_date: d(start), due_date: d(due), planned_hours: planned, actual_hours: actual,
       remaining_hours: status === "done" ? 0 : remaining, blocked_reason: extra.blocked_reason ?? "",
@@ -98,11 +117,11 @@ export function buildDemoDataset(options: DemoDatasetOptions = {}): DemoDataset 
       ["e_vendor", "erp_m2", "Kestrel WMS vendor integration", "blocked", "critical", true, "marcus", -28, -3, 80, 58, 30, {
         description: "Build and test the inventory and shipment sync between the ERP and Kestrel WMS.",
         blocked_reason: "Kestrel has not delivered sandbox credentials for the inventory endpoint. After two follow-ups they committed to the date below.",
-        blockedUntil: 10,
+        blockedUntil: 10, baseline: [-28, -10],
       }],
       ["e_monitor", "erp_m2", "Interface error handling & monitoring", "in_progress", "high", false, "marcus", -7, 4, 32, 8, 24],
-      ["e_extract", "erp_m2", "Legacy data extraction & cleansing", "in_progress", "high", true, "priya", -21, 4, 56, 40, 16, { description: "Extract 14 years of inventory and order history; de-duplicate ~9% of item master records." }],
-      ["e_migrate", "erp_m2", "Database migration (inventory & orders)", "todo", "critical", true, "priya", 0, 9, 40, 0, null, { description: "Load cleansed data into the ERP and reconcile stock balances against the WMS." }],
+      ["e_extract", "erp_m2", "Legacy data extraction & cleansing", "in_progress", "high", true, "priya", -21, 4, 56, 40, 16, { description: "Extract 14 years of inventory and order history; de-duplicate ~9% of item master records.", baseline: [-21, 1] }],
+      ["e_migrate", "erp_m2", "Database migration (inventory & orders)", "todo", "critical", true, "priya", 0, 9, 40, 0, null, { description: "Load cleansed data into the ERP and reconcile stock balances against the WMS.", baseline: [-2, 6] }],
       ["e_finance", "erp_m3", "Finance module configuration", "in_progress", "high", false, "daniel", -14, 8, 64, 36, 28],
       ["e_sit", "erp_m3", "System integration testing", "todo", "high", true, "tom", 14, 18, 32, 0, null],
       ["e_uat", "erp_m3", "User acceptance testing", "todo", "critical", true, "elena", 21, 25, 24, 0, null],
@@ -122,7 +141,7 @@ export function buildDemoDataset(options: DemoDatasetOptions = {}): DemoDataset 
     ...tasksFor("ops", [
       ["o_interviews", "ops_m1", "Stakeholder interviews", "done", "medium", false, "aisha", -49, -38, 40, 42, null, { completed: -38 }],
       ["o_asis", "ops_m1", "As-is process mapping", "done", "high", false, "aisha", -42, -31, 48, 50, null, { completed: -31 }],
-      ["o_tobe", "ops_m2", "Future-state process design", "done", "high", true, "aisha", -28, -4, 40, 44, null, { completed: -4 }],
+      ["o_tobe", "ops_m2", "Future-state process design", "done", "high", true, "aisha", -28, -4, 40, 44, null, { completed: -4, baseline: [-28, -7] }],
       ["o_sop", "ops_m3", "SOP documentation", "in_progress", "high", true, "aisha", -7, 9, 32, 14, 18],
       ["o_dash", "ops_m3", "Dispatch reporting dashboard", "in_progress", "medium", false, "maya", -7, 11, 32, 8, 24],
       ["o_train", "ops_m3", "Shift training sessions", "todo", "high", true, "aisha", 14, 16, 16, 0, null],
@@ -172,5 +191,5 @@ export function buildDemoDataset(options: DemoDatasetOptions = {}): DemoDataset 
     action: action as string, summary: summary as string, created_at: at(offset as number, hour as number),
   }));
 
-  return { workspace, members, projects, milestones, tasks, dependencies, budgetEntries, activity };
+  return { workspace, members, projects, milestones, sprints, tasks, dependencies, budgetEntries, activity };
 }

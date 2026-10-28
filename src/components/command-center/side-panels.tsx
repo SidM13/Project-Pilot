@@ -1,39 +1,16 @@
 import Link from "next/link";
-import type { MemberLoad, ProjectAnalysis, WorkspaceAnalysis } from "@/lib/engine";
+import type { MemberLoad, WorkspaceAnalysis } from "@/lib/engine";
 import { daysBetween } from "@/lib/engine/dates";
 import { formatShortDate } from "@/lib/format";
 import { Panel } from "@/components/system/panel";
-import { HealthPill, Pill } from "@/components/system/status";
+import { Pill } from "@/components/system/status";
 import { cn } from "@/lib/utils";
 import { projectHref } from "@/lib/routes";
-
-export function PortfolioHealth({ projects }: { projects: ProjectAnalysis[] }) {
-  const rows = [...projects].sort((a, b) => a.health.score - b.health.score);
-  return (
-    <Panel title="Portfolio health" description="Score = 100 − capped penalties per finding" bodyClassName="p-0">
-      <ul className="divide-y">
-        {rows.map((p) => (
-          <li key={p.project.id}>
-            <Link href={projectHref(p.project.id)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-subtle">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium">{p.project.name}</span>
-                <span className="block text-xs text-muted-foreground">
-                  {p.progress.percent}% complete · {p.findings.length} finding{p.findings.length === 1 ? "" : "s"}
-                </span>
-              </span>
-              <HealthPill status={p.health.status} score={p.health.score} />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Panel>
-  );
-}
 
 export function UpcomingDeadlines({ analysis }: { analysis: WorkspaceAnalysis }) {
   const names = new Map(analysis.projects.map((p) => [p.project.id, p.project.name]));
   return (
-    <Panel title="Upcoming critical deadlines" description={`Milestones and critical tasks due in the next 14 days`} bodyClassName="p-0">
+    <Panel title="Upcoming deadlines" description="Milestones and critical tasks due in the next 14 days" bodyClassName="p-0">
       {analysis.deadlines.length === 0 ? (
         <p className="px-4 py-6 text-center text-xs text-muted-foreground">Nothing critical is due in the next 14 days.</p>
       ) : (
@@ -41,7 +18,7 @@ export function UpcomingDeadlines({ analysis }: { analysis: WorkspaceAnalysis })
           {analysis.deadlines.map((d) => (
             <li key={`${d.kind}-${d.id}`}>
               <Link
-                href={d.kind === "milestone" ? projectHref(d.projectId, "milestones", `milestone-${d.id}`) : projectHref(d.projectId, "tasks", `task-${d.id}`)}
+                href={d.kind === "milestone" ? projectHref(d.projectId, "timeline", `milestone-${d.id}`) : projectHref(d.projectId, "tasks", `task-${d.id}`)}
                 className="flex items-start gap-3 px-4 py-2.5 hover:bg-subtle"
               >
                 <span className="tabular w-12 shrink-0 pt-px font-mono text-xs text-muted-foreground">{formatShortDate(d.dueDate)}</span>
@@ -68,9 +45,9 @@ export function TeamLoad({ loads, window }: { loads: MemberLoad[]; window: Works
   const rows = [...loads].sort((a, b) => b.loadPercent - a.loadPercent);
   return (
     <Panel
-      title="Team load"
+      title="Team workload"
       description={`Assigned remaining hours vs capacity, ${formatShortDate(window.start)}–${formatShortDate(window.end)}`}
-      actions={<Link href="/team" className="text-xs font-medium text-primary hover:underline">Team</Link>}
+      actions={<Link href="/team" className="text-xs font-medium text-primary hover:underline">People</Link>}
     >
       {rows.length === 0 ? (
         <p className="text-center text-xs text-muted-foreground">Add team members to see capacity.</p>

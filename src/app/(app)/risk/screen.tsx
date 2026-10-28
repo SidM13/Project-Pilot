@@ -34,7 +34,7 @@ export function RiskView({ snapshot, analysis, ranked, selected, history }: Awai
   if (!selected) {
     return (
       <>
-        <PageHeader title="Risk Intelligence" eyebrow={snapshot.workspace.name} />
+        <PageHeader title="Risk analysis" eyebrow={snapshot.workspace.name} />
         <EmptyState title="No active projects to analyse" description="Risk findings and forecasts appear once a project has tasks with owners, hours and dates." />
       </>
     );
@@ -62,8 +62,8 @@ export function RiskView({ snapshot, analysis, ranked, selected, history }: Awai
   return (
     <>
       <PageHeader
-        eyebrow={`${snapshot.workspace.name} · as of ${formatShortDate(analysis.referenceDate)}`}
-        title="Risk Intelligence"
+        eyebrow={<><Link href="/home" className="hover:text-foreground hover:underline">Home</Link> / as of {formatShortDate(analysis.referenceDate)}</>}
+        title="Risk analysis"
         description="Facts from project records, findings from explicit rules, and a capacity-aware forecast. Every figure links back to the records and rules that produced it."
       />
 

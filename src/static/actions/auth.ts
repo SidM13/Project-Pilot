@@ -14,7 +14,7 @@ export async function signUp(): Promise<AuthState> {
   return DISABLED;
 }
 export async function signInDemo(): Promise<AuthState> {
-  go("/command-center/");
+  go("/home/");
   return undefined;
 }
 export async function signOut() {

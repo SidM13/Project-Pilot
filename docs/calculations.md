@@ -81,6 +81,39 @@ Compared measures: projected completion, schedule variance (working days vs targ
 
 **Apply** is a separate server action: it re-validates the scenario and re-simulates against current records (client results are never trusted), writes only the listed record changes, stores the server-computed comparison in `simulations`, and logs an activity event. Applied simulations are immutable (RLS).
 
+## Methodology views (`planning.ts`)
+**Agile.** A sprint is *completed* when it ended before the reference date, *upcoming* when it starts after it, otherwise *active*. Committed points = Σ story points of the sprint's tasks; completed points = Σ points of its done tasks.
+| Quantity | Rule |
+|---|---|
+| Velocity | average completed points over completed sprints (null until one sprint has ended) |
+| Overcommitted | active sprint's committed points > velocity × (1 + 20%) — `OVERCOMMIT_PERCENT` |
+| Sprints to finish | ⌈open points ÷ velocity⌉ |
+| Backlog | tasks with no sprint (or a sprint outside the project) |
+Story points size work relatively; **hours** still drive every date, cost and load figure.
+
+**Waterfall.** Phases are the project's milestones in due-date order.
+- **Critical path**: start at the open task that sets the project's forecast finish (the forecast's driving task) and repeatedly step to its upstream open task with the latest forecast finish. Requires dependencies and a schedulable forecast; otherwise the reason is shown instead of a path.
+- **Baseline variance** (per task with a baseline due date): due shift = working days from baseline due to current due; finish variance = working days from baseline due to the completion date (done) or forecast finish (open). "Set baseline" copies every task's current start/due into its baseline.
+
+**Task cost.** Planned cost = planned hours × owner rate; cost to complete = remaining hours × owner rate (workspace default rate when there is no owner or hourly cost); recorded = Σ budget entries linked to the task.
+
+**Team conflicts** (per project): a member with work on the project above 100% load; an open task planned to start before an open upstream task is due; an open task owned by an inactive member; an open task whose forecast finish is after its due date.
+
+**Budget warnings** (Home) list projects forecast to overrun, or with less than `HEADROOM_WARNING_PERCENT` (10%) of budget left after the forecast.
+
+## AI Copilot (`copilot.ts`)
+Questions are classified by keyword rules into seven intents; named projects and milestones are matched by name. Each intent is answered by the engine:
+| Intent | Answer |
+|---|---|
+| Deadline risk | per project: forecast finish vs target, late milestones; top rule-based decisions |
+| Budget | remaining budget (budget − actual) vs cost to complete; the difference is the headroom or shortfall |
+| Priorities | open tasks scored: critical-path chain 40, blocked 30, overdue 25 or due within 5 working days 15, forecast past due 15, marked critical 10, priority 0–8; top 6 with reasons |
+| Overloaded | load per person (capacity rules above); overload decisions |
+| Cost reduction | for non-critical, non-chain, non-blocked open work: reassignment to a same-discipline, lower-rate, active colleague with free hours (saving = remaining hours × rate difference), else deferral of unstarted work (removes its cost to complete). Protected work is never proposed |
+| Milestone delay | on a `structuredClone`: the milestone finishes N working days after its forecast; open tasks downstream of its work (outside it) cannot start until the next working day; the forecast is re-run. Project finish = max(re-run finish, delayed milestone). Cost is unchanged (no effort added) |
+| Weekly summary | portfolio metrics, per-project health / forecast / projected cost, active sprint vs velocity, top decisions |
+Every answer lists facts (records), forecasts (calculations) and assumptions separately; recommendations are rule-based. Gemini only explains the answer (`explainCopilot`, recomputed server-side) through `runGrounded()`; any figure not in the answer is rejected.
+
 ## Risk history (`lib/data/risk-history.ts`)
 After every logged change, and when the Risk Intelligence page is viewed, each live project's result (health score and status, finding ids/severities/titles, forecast finish and slip, budget variance, reference date) is hashed with SHA-256. A `risk_snapshots` row is appended only when the hash differs from that project's latest snapshot.
 

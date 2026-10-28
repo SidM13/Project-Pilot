@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BUDGET_CATEGORIES, PRIORITIES, PROJECT_STATUSES, TASK_STATUSES } from "@/lib/types";
+import { BUDGET_CATEGORIES, METHODOLOGIES, PRIORITIES, PROJECT_STATUSES, TASK_STATUSES } from "@/lib/types";
 
 // Shared by client forms (instant feedback) and server actions (authoritative).
 
@@ -16,6 +16,7 @@ export const projectSchema = z
     description: z.string().trim().max(2000),
     owner_member_id: optionalId,
     status: z.enum(PROJECT_STATUSES),
+    methodology: z.enum(METHODOLOGIES).default("waterfall"),
     start_date: isoDate,
     target_date: isoDate,
     budget: z.coerce.number<string | number>({ error: "Budget must be a number" }).min(0, "Budget cannot be negative").max(1e10),
@@ -40,6 +41,11 @@ export const taskSchema = z
       .transform((v) => (v === "" ? null : v)),
     blocked_reason: z.string().trim().max(1000),
     blocked_until: optionalDate,
+    story_points: z
+      .union([z.literal(""), z.null(), z.coerce.number<string | number>({ error: "Story points must be a number" }).int("Use whole points").min(0).max(100, "At most 100 points")])
+      .transform((v) => (v === "" || v === null ? null : v))
+      .default(null),
+    sprint_id: z.union([optionalId, z.null()]).default(null),
   })
   .transform((t) => (t.status === "blocked" ? t : { ...t, blocked_until: null }))
   .refine((t) => !t.start_date || !t.due_date || t.due_date >= t.start_date, {
@@ -92,6 +98,15 @@ export const simulationInputSchema = z.object({
   scenario: scenarioSchema,
 });
 
+export const sprintSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name is required").max(120),
+    goal: z.string().trim().max(500),
+    start_date: isoDate,
+    end_date: isoDate,
+  })
+  .refine((s) => s.end_date >= s.start_date, { message: "End date must be on or after the start date", path: ["end_date"] });
+
 export const workspaceNameSchema = z.string().trim().min(1, "Name is required").max(120);
 
 export type ProjectInput = z.input<typeof projectSchema>;
@@ -101,6 +116,7 @@ export type MilestoneInput = z.input<typeof milestoneSchema>;
 export type BudgetEntryInput = z.input<typeof budgetEntrySchema>;
 export type TeamMemberInput = z.input<typeof teamMemberSchema>;
 export type SimulationInput = z.input<typeof simulationInputSchema>;
+export type SprintInput = z.input<typeof sprintSchema>;
 
 /** First error per field, for inline form messages. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {

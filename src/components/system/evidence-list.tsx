@@ -8,7 +8,7 @@ export function EvidenceList({ evidence, projectId, limit }: { evidence: Evidenc
   const hrefFor = (e: Evidence) => {
     if (!projectId || !e.ref) return null;
     if (e.ref.kind === "task") return projectHref(projectId, "tasks", `task-${e.ref.id}`);
-    if (e.ref.kind === "milestone") return projectHref(projectId, "milestones", `milestone-${e.ref.id}`);
+    if (e.ref.kind === "milestone") return projectHref(projectId, "timeline", `milestone-${e.ref.id}`);
     if (e.ref.kind === "budget") return projectHref(projectId, "budget");
     if (e.ref.kind === "member") return `/team#member-${e.ref.id}`;
     return null;

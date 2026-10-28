@@ -1,8 +1,16 @@
 "use client";
 
-import { StaticScreen } from "@/static/static-screen";
-import { CommandCenterView, loadCommandCenter } from "./screen";
+import { useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-export default function Page() {
-  return <StaticScreen load={() => loadCommandCenter()} render={(d) => <CommandCenterView {...d} />} />;
+// The portfolio overview moved to /home. Keeps old public-demo links working.
+export default function CommandCenterRedirect() {
+  const router = useRouter();
+  useEffect(() => router.replace("/home"), [router]);
+  return (
+    <p className="p-8 text-sm">
+      <Link href="/home" className="text-primary hover:underline">Go to Home</Link>
+    </p>
+  );
 }

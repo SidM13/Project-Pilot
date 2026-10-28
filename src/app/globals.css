@@ -74,11 +74,11 @@
   --radius: 6px;
 
   --subtle: #fbfaf8;            /* table headers, inset panels */
-  --nav: #1e1f22;
-  --nav-foreground: #f2f1ee;
-  --nav-muted: #a8a6a1;
-  --nav-hover: #2a2b2f;
-  --nav-active: #34353a;
+  --nav: #f3f1ec;               /* warm light sidebar */
+  --nav-foreground: #1c1b19;
+  --nav-muted: #5f5c56;         /* 5.9:1 on the sidebar */
+  --nav-hover: #e9e6df;
+  --nav-active: #ffffff;
 
   --critical: #b42318;
   --critical-soft: #fdf1ef;

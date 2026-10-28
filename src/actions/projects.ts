@@ -15,7 +15,7 @@ export async function createProject(input: ProjectInput): Promise<ActionResult<{
       .select("id")
       .single();
     if (error) throw error;
-    await logActivity(ctx, { projectId: row.id, entityType: "project", entityId: row.id, action: "created", summary: `Project created with a ${formatMoney(data.budget)} budget` });
+    await logActivity(ctx, { projectId: row.id, entityType: "project", entityId: row.id, action: "created", summary: `${data.methodology === "agile" ? "Agile" : "Waterfall"} project created with a ${formatMoney(data.budget)} budget` });
     refresh();
     return { ok: true, data: { id: row.id } };
   } catch (e) {
@@ -28,7 +28,7 @@ export async function updateProject(projectId: string, input: ProjectInput): Pro
     const id = uuid.parse(projectId);
     const data = projectSchema.parse(input);
     const ctx = await actionContext();
-    const { data: before, error: readError } = await ctx.supabase.from("projects").select("budget, target_date, status").eq("id", id).single();
+    const { data: before, error: readError } = await ctx.supabase.from("projects").select("budget, target_date, status, methodology").eq("id", id).single();
     if (readError) throw readError;
     const { error } = await ctx.supabase.from("projects").update(data).eq("id", id);
     if (error) throw error;
@@ -37,6 +37,7 @@ export async function updateProject(projectId: string, input: ProjectInput): Pro
     if (Number(before.budget) !== data.budget) changes.push(`budget ${formatMoney(Number(before.budget))} → ${formatMoney(data.budget)}`);
     if (before.target_date !== data.target_date) changes.push(`target ${before.target_date} → ${data.target_date}`);
     if (before.status !== data.status) changes.push(`status ${before.status} → ${data.status}`);
+    if ((before.methodology ?? "waterfall") !== data.methodology) changes.push(`methodology ${before.methodology ?? "waterfall"} → ${data.methodology}`);
     await logActivity(ctx, { projectId: id, entityType: "project", entityId: id, action: "updated", summary: `Project details updated${changes.length ? `: ${changes.join(", ")}` : ""}` });
     refresh();
     return { ok: true };

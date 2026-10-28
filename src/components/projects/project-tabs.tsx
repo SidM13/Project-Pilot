@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 const TABS: { tab?: ProjectTab; label: string }[] = [
   { label: "Overview" },
   { tab: "tasks", label: "Tasks" },
-  { tab: "milestones", label: "Milestones" },
+  { tab: "timeline", label: "Timeline" },
   { tab: "budget", label: "Budget" },
-  { tab: "activity", label: "Activity" },
+  { tab: "team", label: "Team" },
 ];
 
 const pathOf = (href: string) => href.split(/[?#]/)[0].replace(/\/$/, "");
@@ -27,7 +27,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
             key={t.label}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={cn("-mb-px border-b-2 pb-2.5 text-[13px] whitespace-nowrap", active ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}
+            className={cn("-mb-px border-b-2 pb-2.5 text-[13.5px] whitespace-nowrap", active ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}
           >
             {t.label}
           </Link>

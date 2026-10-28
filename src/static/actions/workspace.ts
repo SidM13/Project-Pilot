@@ -13,7 +13,7 @@ const go = (path: string) => window.location.assign(`${process.env.NEXT_PUBLIC_B
 export async function switchWorkspace(workspaceId: string): Promise<ActionResult> {
   try {
     setActiveWorkspace(uuid.parse(workspaceId));
-    go("/command-center/");
+    go("/home/");
     return { ok: true };
   } catch (e) {
     return fail(e);
@@ -27,7 +27,7 @@ export async function createWorkspace(_: unknown, formData: FormData): Promise<A
     const { data, error } = await supabase.rpc("create_workspace", { p_name: name });
     if (error) throw error;
     setActiveWorkspace(data as string);
-    go("/command-center/");
+    go("/home/");
     return { ok: true };
   } catch (e) {
     return fail(e);

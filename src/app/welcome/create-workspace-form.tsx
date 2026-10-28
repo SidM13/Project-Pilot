@@ -15,7 +15,7 @@ export function CreateWorkspaceForm() {
         <Input id="name" name="name" required maxLength={120} placeholder="e.g. Northwind Advisory" />
       </Field>
       <div className="flex items-center justify-between">
-        <Link href="/command-center" className="text-[13px] text-muted-foreground hover:text-foreground">Cancel</Link>
+        <Link href="/home" className="text-[13px] text-muted-foreground hover:text-foreground">Cancel</Link>
         <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create workspace"}</Button>
       </div>
     </form>

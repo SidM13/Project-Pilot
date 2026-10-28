@@ -30,9 +30,10 @@ const DEFAULTS: Record<string, () => Row> = {
   workspaces: () => ({ is_demo: false, reference_date: null, currency: "USD", default_hourly_rate: 120, default_weekly_capacity: 32, created_at: nowIso() }),
   workspace_members: () => ({ role: "member", created_at: nowIso() }),
   team_members: () => ({ role_title: "", discipline: "", weekly_capacity_hours: 40, hourly_cost: null, active: true, created_at: nowIso() }),
-  projects: () => ({ client_name: "", description: "", owner_member_id: null, status: "active", budget: 0, archived_at: null, created_at: nowIso(), updated_at: nowIso() }),
+  projects: () => ({ client_name: "", description: "", owner_member_id: null, status: "active", methodology: "waterfall", budget: 0, archived_at: null, created_at: nowIso(), updated_at: nowIso() }),
   milestones: () => ({ completed_at: null, created_at: nowIso() }),
-  tasks: () => ({ milestone_id: null, description: "", status: "todo", priority: "medium", is_critical: false, assignee_id: null, start_date: null, due_date: null, planned_hours: 8, actual_hours: 0, remaining_hours: null, blocked_reason: "", blocked_until: null, completed_at: null, deferred_at: null, created_at: nowIso(), updated_at: nowIso() }),
+  sprints: () => ({ goal: "", created_at: nowIso() }),
+  tasks: () => ({ milestone_id: null, description: "", status: "todo", priority: "medium", is_critical: false, assignee_id: null, start_date: null, due_date: null, planned_hours: 8, actual_hours: 0, remaining_hours: null, blocked_reason: "", blocked_until: null, completed_at: null, deferred_at: null, story_points: null, sprint_id: null, baseline_start: null, baseline_due: null, created_at: nowIso(), updated_at: nowIso() }),
   task_dependencies: () => ({ created_at: nowIso() }),
   budget_entries: () => ({ task_id: null, note: "", created_at: nowIso() }),
   activity_events: () => ({ project_id: null, entity_id: null, created_at: nowIso() }),
@@ -111,6 +112,7 @@ export function seedDemoWorkspace(tables: Tables, workspaceId: string): PgError 
   add("team_members", data.members);
   add("projects", data.projects);
   add("milestones", data.milestones);
+  add("sprints", data.sprints);
   add("tasks", data.tasks);
   add("task_dependencies", data.dependencies);
   add("budget_entries", data.budgetEntries);
@@ -145,6 +147,9 @@ function applyRules(tables: Tables, table: string, row: Row, before: Row | null)
       row.remaining_hours = 0;
     } else row.completed_at = null;
     if (row.due_date && row.start_date && (row.due_date as string) < (row.start_date as string)) return { error: { code: "23514", message: "due date before start date" } };
+    if (row.baseline_due && row.baseline_start && (row.baseline_due as string) < (row.baseline_start as string)) return { error: { code: "23514", message: "baseline due before baseline start" } };
+    if (row.sprint_id && !tables.sprints.some((s) => s.id === row.sprint_id && s.project_id === row.project_id)) return { error: { code: "23503", message: "sprint must belong to the task's project" } };
+    if (row.story_points !== null && row.story_points !== undefined && ((row.story_points as number) < 0 || (row.story_points as number) > 100)) return { error: { code: "23514", message: "story points out of range" } };
   }
   if (table === "task_dependencies") {
     if (row.task_id === row.depends_on_id) return { error: { code: "23514", message: "task cannot depend on itself" } };
@@ -156,6 +161,11 @@ function applyRules(tables: Tables, table: string, row: Row, before: Row | null)
     }
   }
   if (table === "projects" && (row.target_date as string) < (row.start_date as string)) return { error: { code: "23514", message: "target before start" } };
+  if (table === "projects" && row.methodology !== "waterfall" && row.methodology !== "agile") return { error: { code: "23514", message: "invalid methodology" } };
+  if (table === "sprints") {
+    if ((row.end_date as string) < (row.start_date as string)) return { error: { code: "23514", message: "sprint ends before it starts" } };
+    if (!tables.projects.some((p) => p.id === row.project_id && p.workspace_id === row.workspace_id)) return { error: { code: "23503", message: "sprint project not in workspace" } };
+  }
   return { row };
 }
 
@@ -166,6 +176,7 @@ export function cascadeDelete(tables: Tables, table: string, row: Row) {
     tables.budget_entries.forEach((e) => e.task_id === row.id && (e.task_id = null));
   }
   if (table === "milestones") tables.tasks.forEach((t) => t.milestone_id === row.id && (t.milestone_id = null));
+  if (table === "sprints") tables.tasks.forEach((t) => t.sprint_id === row.id && (t.sprint_id = null));
   if (table === "simulations") tables.decision_briefs.forEach((b) => b.simulation_id === row.id && (b.simulation_id = null));
 }
 

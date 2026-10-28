@@ -55,6 +55,8 @@ const pagesConfig: NextConfig = {
       "@/actions/team": generated("team"),
       "@/actions/simulations": generated("simulations"),
       "@/actions/ai": generated("ai"),
+      "@/actions/planning": generated("planning"),
+      "@/actions/copilot": generated("copilot"),
     },
   },
 };

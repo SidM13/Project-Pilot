@@ -17,7 +17,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         </Suspense>
       }
       user={
-        <Suspense fallback={<div className="h-12 border-t border-white/10" />}>
+        <Suspense fallback={<div className="h-12 border-t" />}>
           <UserBlock />
         </Suspense>
       }

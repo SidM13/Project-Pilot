@@ -21,7 +21,7 @@ const initial = (m?: TeamMember) => ({
   active: m?.active ?? true,
 });
 
-export function MemberDialog({ member, disciplines }: { member?: TeamMember; disciplines: string[] }) {
+export function MemberDialog({ member, disciplines, addLabel = "Add member" }: { member?: TeamMember; disciplines: string[]; addLabel?: string }) {
   const [open, setOpen] = useState(false);
   const [v, setV] = useState(() => initial(member));
   const { pending, errors, setErrors, submit } = useActionForm();
@@ -30,7 +30,7 @@ export function MemberDialog({ member, disciplines }: { member?: TeamMember; dis
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) { setV(initial(member)); setErrors({}); } }}>
       <DialogTrigger asChild>
-        {member ? <Button variant="ghost" size="icon-sm" aria-label={`Edit ${member.name}`}><Pencil /></Button> : <Button><Plus /> Add member</Button>}
+        {member ? <Button variant="ghost" size="icon-sm" aria-label={`Edit ${member.name}`}><Pencil /></Button> : <Button variant="outline"><Plus /> {addLabel}</Button>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

@@ -1,12 +1,13 @@
-// Frame of the signed-in app: charcoal sidebar, mobile header, demo banner, content.
+// Frame of the signed-in app: light sidebar, mobile header, demo banner, content.
 // Filled by the server layout (streamed parts) and the static demo layout (browser parts).
 import Link from "next/link";
+import { LogoMark } from "@/components/layout/logo";
 import { MobileNav } from "@/components/layout/mobile-nav";
 
 function Wordmark() {
   return (
-    <Link href="/command-center" className="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-ring">
-      <span aria-hidden className="grid size-6 place-items-center rounded-[5px] bg-primary text-[11px] font-bold text-white">P</span>
+    <Link href="/home" className="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-ring">
+      <LogoMark />
       <span className="text-[14px] font-semibold tracking-tight text-nav-foreground">ProjectPilot</span>
     </Link>
   );
@@ -15,7 +16,7 @@ function Wordmark() {
 export function AppShell({ children, switcher, nav, user, banner }: { children: React.ReactNode; switcher: React.ReactNode; nav: React.ReactNode; user: React.ReactNode; banner: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-nav md:flex print:hidden">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-nav md:flex print:hidden">
         <div className="px-5 pt-5 pb-4">
           <Wordmark />
         </div>
@@ -27,7 +28,7 @@ export function AppShell({ children, switcher, nav, user, banner }: { children: 
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 items-center justify-between bg-nav px-4 md:hidden print:hidden">
+        <header className="flex h-12 items-center justify-between border-b bg-nav px-4 md:hidden print:hidden">
           <Wordmark />
           <MobileNav />
         </header>

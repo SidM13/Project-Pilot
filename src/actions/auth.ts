@@ -19,7 +19,7 @@ export async function signIn(_: AuthState, formData: FormData): Promise<AuthStat
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: error.message };
-  redirect("/command-center");
+  redirect("/home");
 }
 
 export async function signUp(_: AuthState, formData: FormData): Promise<AuthState> {
@@ -35,14 +35,14 @@ export async function signUp(_: AuthState, formData: FormData): Promise<AuthStat
 
   const { error: wsError } = await supabase.rpc("create_workspace", { p_name: parsed.data.workspace });
   if (wsError) return { error: `Account created, but the workspace could not be created: ${wsError.message}` };
-  redirect("/command-center");
+  redirect("/home");
 }
 
 /** Signs in to the shared demo account. Credentials stay on the server. */
 export async function signInDemo(): Promise<AuthState> {
   if (isDemoMode) {
     (await cookies()).set(DEMO_SESSION_COOKIE, "1", { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" });
-    redirect("/command-center");
+    redirect("/home");
   }
   const email = process.env.DEMO_EMAIL;
   const password = process.env.DEMO_PASSWORD;
@@ -50,7 +50,7 @@ export async function signInDemo(): Promise<AuthState> {
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: `Demo sign-in failed: ${error.message}. Run npm run demo:setup.` };
-  redirect("/command-center");
+  redirect("/home");
 }
 
 export async function signOut() {

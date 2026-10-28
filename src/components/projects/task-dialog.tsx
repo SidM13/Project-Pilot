@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { addDependency, createTask, deleteTask, removeDependency, updateTask } from "@/actions/tasks";
 import { wouldCreateCycle } from "@/lib/engine/graph";
-import { PRIORITIES, PRIORITY_LABELS, STATUS_LABELS, TASK_STATUSES, type Milestone, type Task, type TaskDependency, type TeamMember } from "@/lib/types";
+import { PRIORITIES, PRIORITY_LABELS, STATUS_LABELS, TASK_STATUSES, type Methodology, type Milestone, type Sprint, type Task, type TaskDependency, type TeamMember } from "@/lib/types";
 import type { TaskInput } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,9 +17,9 @@ import { Field } from "@/components/system/field";
 import { NativeSelect } from "@/components/system/native-select";
 import { useActionForm } from "@/components/system/use-action-form";
 
-type Values = Omit<{ [K in keyof TaskInput]: string }, "is_critical"> & { is_critical: boolean };
+type Values = Omit<{ [K in keyof TaskInput]-?: string }, "is_critical"> & { is_critical: boolean };
 
-function initial(task?: Task): Values {
+function initial(task?: Task, defaults: Partial<Values> = {}): Values {
   return {
     title: task?.title ?? "",
     description: task?.description ?? "",
@@ -35,6 +35,9 @@ function initial(task?: Task): Values {
     remaining_hours: task?.remaining_hours == null ? "" : String(task.remaining_hours),
     blocked_reason: task?.blocked_reason ?? "",
     blocked_until: task?.blocked_until ?? "",
+    story_points: task?.story_points == null ? "" : String(task.story_points),
+    sprint_id: task?.sprint_id ?? "",
+    ...(task ? {} : defaults),
   };
 }
 
@@ -45,12 +48,17 @@ export interface TaskDialogProps {
   dependencies: TaskDependency[];
   members: TeamMember[];
   milestones: Milestone[];
+  methodology?: Methodology;
+  sprints?: Sprint[];
+  /** Prefilled values for a new task (e.g. the sprint or status column it was created from). */
+  defaults?: Partial<Pick<Values, "sprint_id" | "status" | "milestone_id">>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function TaskDialog({ projectId, task, tasks, dependencies, members, milestones, open, onOpenChange }: TaskDialogProps) {
-  const [v, setV] = useState<Values>(() => initial(task));
+export function TaskDialog({ projectId, task, tasks, dependencies, members, milestones, methodology = "waterfall", sprints = [], defaults, open, onOpenChange }: TaskDialogProps) {
+  const agile = methodology === "agile";
+  const [v, setV] = useState<Values>(() => initial(task, defaults));
   const [newDep, setNewDep] = useState("");
   const { pending, errors, submit } = useActionForm();
   const deps = useActionForm();
@@ -110,12 +118,25 @@ export function TaskDialog({ projectId, task, tasks, dependencies, members, mile
                 {members.filter((m) => m.active || m.id === v.assignee_id).map((m) => <option key={m.id} value={m.id}>{m.name}{m.role_title ? ` — ${m.role_title}` : ""}</option>)}
               </NativeSelect>
             </Field>
-            <Field label="Milestone" htmlFor="t-milestone" className="sm:col-span-3">
+            <Field label={agile ? "Release" : "Phase (milestone)"} htmlFor="t-milestone" className="sm:col-span-3">
               <NativeSelect id="t-milestone" value={v.milestone_id} onChange={set("milestone_id")}>
                 <option value="">None</option>
                 {milestones.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </NativeSelect>
             </Field>
+            {agile && (
+              <>
+                <Field label="Sprint" htmlFor="t-sprint" className="sm:col-span-3">
+                  <NativeSelect id="t-sprint" value={v.sprint_id} onChange={set("sprint_id")}>
+                    <option value="">Backlog (no sprint)</option>
+                    {sprints.map((sp) => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
+                  </NativeSelect>
+                </Field>
+                <Field label="Story points" htmlFor="t-points" error={errors.story_points} hint="Relative size; hours still drive dates and cost" className="sm:col-span-3">
+                  <Input id="t-points" inputMode="numeric" value={v.story_points} onChange={set("story_points")} placeholder="e.g. 3" aria-invalid={!!errors.story_points} />
+                </Field>
+              </>
+            )}
             <Field label="Start date" htmlFor="t-start" error={errors.start_date} className="sm:col-span-3">
               <Input id="t-start" type="date" value={v.start_date} onChange={set("start_date")} />
             </Field>

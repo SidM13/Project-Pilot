@@ -14,9 +14,10 @@ export type GroundedResult<T> =
 interface GroundedRequest<T> {
   supabase: ServerClient;
   workspaceId: string;
-  projectId: string;
+  /** Null for portfolio-wide Copilot answers. */
+  projectId: string | null;
   userId: string;
-  kind: "simulation" | "brief";
+  kind: "simulation" | "brief" | "copilot";
   /** Everything the model may use. Also the cache key and the grounding whitelist. */
   context: unknown;
   prompt: (context: unknown) => string;

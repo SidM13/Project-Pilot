@@ -66,7 +66,11 @@ function matchesScenario(kind: "simulation" | "brief", context: unknown): boolea
 const DISABLED =
   "Live AI is turned off in this public demo, so nothing is generated here. A pre-generated Gemini example is available for the flagship scenario — Client ERP Implementation, reassigning “System integration testing” from Tom Becker to Jordan Ruiz — on unmodified demo data (use “Reset demo data” if you have made changes).";
 
-export async function runGrounded<T>(req: { kind: "simulation" | "brief"; context: unknown; schema: z.ZodType<T> }): Promise<GroundedResult<T>> {
+const COPILOT_DISABLED =
+  "Live AI is turned off in this public demo, so no AI explanation is generated. The answer above is calculated by the ProjectPilot engine from the demo records; on a server deployment with a Gemini key, an AI-drafted explanation of the same figures appears here.";
+
+export async function runGrounded<T>(req: { kind: "simulation" | "brief" | "copilot"; context: unknown; schema: z.ZodType<T> }): Promise<GroundedResult<T>> {
+  if (req.kind === "copilot") return { ok: false, error: { kind: "not_configured", message: COPILOT_DISABLED } };
   const example = EXAMPLES[req.kind];
   const parsed = req.schema.safeParse(example.output);
   const stillAccurate = parsed.success && findUngroundedFigures(outputTexts(example.output), allowedFigures(req.context)).length === 0;

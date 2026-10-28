@@ -26,7 +26,7 @@ export function BriefGenerator({ projects, simulations, projectId, simulationId,
           {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </NativeSelect>
       </Field>
-      <Field label="Include a simulated scenario" htmlFor="brief-sim" hint="Saved in the Decision Simulator">
+      <Field label="Include a simulated scenario" htmlFor="brief-sim" hint="Saved in the What-if planner">
         <NativeSelect id="brief-sim" value={sim} onChange={(e) => setSim(e.target.value)}>
           <option value="">None — current plan only</option>
           {simulations.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.status})</option>)}

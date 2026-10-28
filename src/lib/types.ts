@@ -6,11 +6,13 @@ export const TASK_STATUSES = ["todo", "in_progress", "blocked", "done"] as const
 export const PRIORITIES = ["low", "medium", "high", "critical"] as const;
 export const PROJECT_STATUSES = ["planning", "active", "on_hold", "completed"] as const;
 export const BUDGET_CATEGORIES = ["labor", "vendor", "software", "travel", "other"] as const;
+export const METHODOLOGIES = ["waterfall", "agile"] as const;
 
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type Priority = (typeof PRIORITIES)[number];
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 export type BudgetCategory = (typeof BUDGET_CATEGORIES)[number];
+export type Methodology = (typeof METHODOLOGIES)[number];
 
 export interface Workspace {
   id: string;
@@ -41,6 +43,8 @@ export interface Project {
   description: string;
   owner_member_id: string | null;
   status: ProjectStatus;
+  /** Waterfall: phases (milestones), baselines, Gantt. Agile: backlog, sprints, story points. */
+  methodology: Methodology;
   start_date: string;
   target_date: string;
   budget: number;
@@ -79,7 +83,24 @@ export interface Task {
   completed_at: string | null;
   /** Set when scope was reduced; deferred tasks are excluded from every calculation. */
   deferred_at: string | null;
+  /** Agile sizing (relative effort). Hours, not points, drive every forecast and cost. */
+  story_points: number | null;
+  /** Agile sprint membership; null = product backlog. */
+  sprint_id: string | null;
+  /** Waterfall baseline (the approved plan the live dates are compared with). */
+  baseline_start: string | null;
+  baseline_due: string | null;
   updated_at: string;
+}
+
+export interface Sprint {
+  id: string;
+  workspace_id: string;
+  project_id: string;
+  name: string;
+  goal: string;
+  start_date: string;
+  end_date: string;
 }
 
 export interface TaskDependency {
@@ -115,6 +136,7 @@ export interface WorkspaceSnapshot {
   members: TeamMember[];
   projects: Project[];
   milestones: Milestone[];
+  sprints: Sprint[];
   tasks: Task[];
   dependencies: TaskDependency[];
   budgetEntries: BudgetEntry[];
@@ -147,4 +169,9 @@ export const BUDGET_CATEGORY_LABELS: Record<BudgetCategory, string> = {
   software: "Software",
   travel: "Travel",
   other: "Other",
+};
+
+export const METHODOLOGY_LABELS: Record<Methodology, string> = {
+  waterfall: "Waterfall",
+  agile: "Agile",
 };
