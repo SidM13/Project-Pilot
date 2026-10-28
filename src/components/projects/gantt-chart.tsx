@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, daysBetween } from "@/lib/engine/dates";
 import { formatShortDate } from "@/lib/format";
 import { STATUS_LABELS, type Methodology, type Milestone, type Sprint, type Task, type TeamMember } from "@/lib/types";
@@ -104,13 +104,19 @@ export function GanttChart(props: GanttProps) {
   }, [groups, props.projectStart, props.projectTarget, referenceDate, props.forecastFinish]);
 
   const px = DAY_PX[zoom];
+  const scroller = useRef<HTMLDivElement>(null);
+  // Open with "today" in view (a week of context to its left), not at the project's first day.
+  useEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollLeft = Math.max(0, (daysBetween(range.start, referenceDate) - 7) * px);
+  }, [range.start, referenceDate, px]);
   const width = range.days * px;
   const x = (d: string) => daysBetween(range.start, d) * px;
   const span = (a: string, b: string) => Math.max(px * 0.6, (daysBetween(a, b) + 1) * px);
   const weeks = Array.from({ length: Math.ceil(range.days / 7) }, (_, i) => addDays(range.start, i * 7));
 
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="min-w-0 rounded-lg border bg-card">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b px-4 py-2.5">
         <Toggle on={showForecast} set={setShowForecast} label="Forecast overrun" />
         <Toggle on={showCritical} set={setShowCritical} label="Critical path" disabled={!props.criticalPathIds.length} />
@@ -142,7 +148,7 @@ export function GanttChart(props: GanttProps) {
         </div>
 
         {/* Chart */}
-        <div className="min-w-0 flex-1 overflow-x-auto">
+        <div ref={scroller} className="min-w-0 flex-1 overflow-x-auto">
           <div className="relative" style={{ width }}>
             {/* Week header */}
             <div className="flex h-9 border-b bg-subtle">

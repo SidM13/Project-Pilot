@@ -45,7 +45,7 @@ export function ProjectTimelineView(view: Awaited<ReturnType<typeof loadProjectT
   });
 
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <MetricStrip
         metrics={[
           { label: "Target date", value: formatShortDate(project.target_date), detail: `${Math.max(0, daysBetween(referenceDate, project.target_date))} calendar days away` },
