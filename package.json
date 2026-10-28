@@ -7,13 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "node scripts/gen-static-actions.mjs && next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:push": "node --env-file=.env.local scripts/db-push.mjs",
     "demo:setup": "node --env-file=.env.local scripts/setup-demo.mjs",
     "verify:security": "node --env-file=.env.local scripts/verify-security.mjs",
-    "check:supabase": "node scripts/check-supabase.mjs"
+    "check:supabase": "node scripts/check-supabase.mjs",
+    "security:scan": "node scripts/security-scan.mjs --history",
+    "build:pages": "node scripts/gen-static-actions.mjs && NEXT_BUILD_TARGET=pages next build && touch out/.nojekyll && node scripts/security-scan.mjs --dir out",
+    "preview:pages": "node scripts/serve-pages.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

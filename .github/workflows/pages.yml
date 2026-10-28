@@ -1,0 +1,57 @@
+# Builds the static public demo and publishes it to GitHub Pages:
+#   https://sidm13.github.io/Project-Pilot/
+# Uses no secrets: the static demo has no Supabase or Gemini access by design.
+# Every step must pass — including the secret scans of the repository history and of
+# the generated site — before anything is deployed.
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for the secret scan
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Secret scan (working tree + full git history)
+        run: npm run security:scan
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Build static demo (includes secret scan of the output)
+        run: npm run build:pages
+        env:
+          PAGES_BASE_PATH: /Project-Pilot
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

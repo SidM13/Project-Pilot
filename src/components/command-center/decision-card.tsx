@@ -5,6 +5,7 @@ import { EvidenceList } from "@/components/system/evidence-list";
 import { SeverityPill, severityRule } from "@/components/system/status";
 import { SourceLabel } from "@/components/system/states";
 import { cn } from "@/lib/utils";
+import { projectHref } from "@/lib/routes";
 
 const EVIDENCE_PREVIEW = 3;
 
@@ -27,7 +28,7 @@ export function DecisionCard({ decision, rank }: { decision: Decision; rank: num
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="tabular font-mono text-muted-foreground">{String(rank).padStart(2, "0")}</span>
         <SeverityPill severity={decision.severity} />
-        <Link href={`/projects/${decision.projectId}`} className="font-medium text-muted-foreground hover:text-foreground hover:underline underline-offset-2">
+        <Link href={projectHref(decision.projectId)} className="font-medium text-muted-foreground hover:text-foreground hover:underline underline-offset-2">
           {decision.projectName}
         </Link>
       </div>
@@ -59,7 +60,7 @@ export function DecisionCard({ decision, rank }: { decision: Decision; rank: num
       </div>
 
       <div className="flex flex-wrap gap-4">
-        <Link href={`/projects/${decision.projectId}`} className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline underline-offset-2">
+        <Link href={projectHref(decision.projectId)} className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline underline-offset-2">
           Open project <ArrowRight className="size-3" />
         </Link>
         <Link href={simulatorHref(decision)} className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline underline-offset-2">

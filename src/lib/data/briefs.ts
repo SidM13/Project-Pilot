@@ -1,4 +1,3 @@
-import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { BriefFacts } from "@/lib/briefs/facts";
 import type { BriefNarrative } from "@/lib/ai/prompts";

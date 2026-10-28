@@ -1,5 +1,4 @@
-import "server-only";
-import { createHash } from "node:crypto";
+import { sha256Hex } from "@/lib/hash";
 import type { ProjectAnalysis, WorkspaceAnalysis } from "@/lib/engine";
 import { createClient } from "@/lib/supabase/server";
 
@@ -50,7 +49,7 @@ export async function recordRiskSnapshots(workspaceId: string, analysis: Workspa
 
     const rows = analysis.projects.flatMap((p) => {
       const summary = summarize(p, analysis);
-      const result_hash = createHash("sha256").update(JSON.stringify(summary)).digest("hex");
+      const result_hash = sha256Hex(JSON.stringify(summary));
       return lastHash.get(p.project.id) === result_hash ? [] : [{ ...summary, result_hash, workspace_id: workspaceId, project_id: p.project.id }];
     });
     if (!rows.length) return;

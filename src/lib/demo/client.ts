@@ -1,5 +1,4 @@
-import "server-only";
-import { cascadeDelete, createWorkspace, demoState, DEMO_USER, prepareInsert, prepareUpdate, seedDemoWorkspace, type PgError, type Row } from "./store";
+import { cascadeDelete, commitDemo, createWorkspace, demoState, DEMO_USER, prepareInsert, prepareUpdate, seedDemoWorkspace, type PgError, type Row } from "./store";
 
 // Supabase-compatible client over the in-memory demo store. Implements exactly the
 // query-builder surface the app uses (from/select/insert/update/delete, eq/in/is/gte,
@@ -86,6 +85,7 @@ class Query implements PromiseLike<Result> {
       }
       tables[this.table].push(...staged);
       affected = staged;
+      commitDemo();
     } else if (this.op === "update") {
       for (const before of this.match(tables[this.table])) {
         const r = prepareUpdate(tables, this.table, before, this.payload as Row);
@@ -93,10 +93,12 @@ class Query implements PromiseLike<Result> {
         Object.assign(before, r.row);
         affected.push(before);
       }
+      if (affected.length) commitDemo();
     } else if (this.op === "delete") {
       affected = this.match(tables[this.table]);
       tables[this.table] = tables[this.table].filter((r) => !affected.includes(r));
       affected.forEach((r) => cascadeDelete(tables, this.table, r));
+      if (affected.length) commitDemo();
     } else {
       affected = this.match(tables[this.table]);
     }
@@ -135,8 +137,16 @@ export function createDemoClient(signedIn: boolean) {
     rpc: async (fn: string, args: Record<string, unknown>): Promise<Result> => {
       const { tables } = demoState();
       if (!user) return { data: null, error: { code: "42501", message: "not_authenticated" } };
-      if (fn === "create_workspace") return { data: createWorkspace(tables, String(args.p_name), user.id), error: null };
-      if (fn === "seed_demo_workspace") return { data: null, error: seedDemoWorkspace(tables, String(args.ws)) };
+      if (fn === "create_workspace") {
+        const id = createWorkspace(tables, String(args.p_name), user.id);
+        commitDemo();
+        return { data: id, error: null };
+      }
+      if (fn === "seed_demo_workspace") {
+        const error = seedDemoWorkspace(tables, String(args.ws));
+        if (!error) commitDemo();
+        return { data: null, error };
+      }
       return { data: null, error: { code: "42883", message: `function ${fn} does not exist` } };
     },
     auth: {

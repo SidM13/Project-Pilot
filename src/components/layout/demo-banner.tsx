@@ -20,7 +20,10 @@ export function DemoBanner({ referenceDate, local }: { referenceDate: string; lo
         <span className="font-semibold text-primary">Demo workspace</span>
         <span className="text-muted-foreground">
           {" "}· Fictional clients and team · Calculations use a pinned date of {formatWeekdayDate(referenceDate)}
-          {local && " · Local demo mode: in-memory data, not a database — resets when the server restarts"}
+          {local &&
+            (process.env.NEXT_PUBLIC_STATIC_DEMO === "1"
+              ? " · Public demo: data is stored only in this browser and never sent anywhere"
+              : " · Local demo mode: in-memory data, not a database — resets when the server restarts")}
         </span>
       </p>
       <AlertDialog>

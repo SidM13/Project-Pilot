@@ -32,6 +32,9 @@ Browser ─▶ Next.js 16 App Router (RSC + client islands, proxy.ts session ref
 | 4 AI layer | Gemini provider abstraction, grounded explanations with Zod-validated JSON, figure-grounding check, caching, rate limits, decision brief generator (edit / copy / PDF) | **Done** (DB + live Gemini verification pending) |
 | 5 Demo-ready prototype | Local demo mode (in-memory Supabase-compatible adapter seeded from one TypeScript dataset), end-to-end action tests, browser walkthrough, PDF verification, responsive check | **Done** |
 
+## Public static demo (GitHub Pages)
+A second build target exports the demo as static files for GitHub Pages. Pages are split into shared loaders and views; in the static build the loaders run in the browser against the same demo store (persisted to localStorage), and the generated, directive-free copies of the server actions run the same validated logic locally. Supabase and Gemini are unreachable from this build by construction; secret scans gate deployment.
+
 ## Data modes
 `PROJECTPILOT_DATA_MODE=demo` (default) swaps the user-scoped Supabase client for `src/lib/demo/client.ts`, an in-memory implementation of the exact query surface the app uses, over a store (`src/lib/demo/store.ts`) that enforces the schema's defaults, completion trigger, unique keys, same-project/acyclic dependencies and cascades. It is seeded from `src/lib/demo/dataset.ts` — the same dataset the engine tests use. Every page, server action, simulation and AI feature runs unchanged. `PROJECTPILOT_DATA_MODE=supabase` uses the real database and migrations 0001–0006, which are kept intact.
 
@@ -45,6 +48,7 @@ Browser ─▶ Next.js 16 App Router (RSC + client islands, proxy.ts session ref
 - No historical velocity: forecasts use stated capacity and remaining-hour estimates, and say so.
 - Working days ignore public holidays and leave.
 - Cost-to-complete covers labor only; future vendor/licence costs must be recorded when committed.
+- The GitHub Pages demo keeps each visitor's changes in their own browser; clearing site data or "Reset demo data" restores the seed. Live AI is off there; only two labelled pre-generated examples exist.
 - Demo mode is single-user and process-local: data lives in server memory and resets on restart; RLS is not emulated (there is one user). On serverless hosting each instance holds its own copy, so use it for local or single-instance demos.
 - Workspace invitations are not built; a workspace has one owner (the creator). The demo uses a shared demo login.
 - Light theme only.

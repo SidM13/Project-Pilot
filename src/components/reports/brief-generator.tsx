@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/system/field";
 import { NativeSelect } from "@/components/system/native-select";
 import { useActionForm } from "@/components/system/use-action-form";
+import { briefHref } from "@/lib/routes";
 
 export function BriefGenerator({ projects, simulations, projectId, simulationId, aiConfigured }: {
   projects: { id: string; name: string }[];
@@ -37,7 +38,7 @@ export function BriefGenerator({ projects, simulations, projectId, simulationId,
           submit(
             async () => {
               const r = await generateBrief({ projectId, simulationId: sim });
-              if (r.ok && r.data) router.push(`/reports/${r.data.id}`);
+              if (r.ok && r.data) router.push(briefHref(r.data.id));
               return r;
             },
             { success: "Brief created" },
@@ -48,7 +49,9 @@ export function BriefGenerator({ projects, simulations, projectId, simulationId,
       </Button>
       <p className="text-[11px] leading-4 text-muted-foreground">
         Status, variances, blockers, decisions and milestones are calculated from project records.{" "}
-        {aiConfigured ? "Gemini drafts the summary, recommendation, risks and client note from those figures only; you can edit everything it writes." : "AI drafting is not configured, so the narrative sections start empty for you to write."}
+        {process.env.NEXT_PUBLIC_STATIC_DEMO === "1"
+          ? "Live AI drafting is turned off in this public demo. For the ERP project with the “System integration testing → Jordan Ruiz” scenario, the narrative is a labelled example recorded from a real Gemini run; otherwise it starts empty for you to write."
+          : aiConfigured ? "Gemini drafts the summary, recommendation, risks and client note from those figures only; you can edit everything it writes." : "AI drafting is not configured, so the narrative sections start empty for you to write."}
       </p>
     </div>
   );

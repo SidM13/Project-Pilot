@@ -1,4 +1,3 @@
-import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { Scenario, SimulationResult } from "@/lib/engine/simulate";
 

@@ -42,3 +42,8 @@ next-env.d.ts
 
 # The template has placeholders only and is meant to be committed
 !.env.local.example
+
+# Generated browser copies of server actions (static Pages build)
+/src/static/generated/
+# Static export output
+/out/

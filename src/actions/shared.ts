@@ -1,4 +1,3 @@
-import "server-only";
 import { z } from "zod";
 import { analyzeWorkspace } from "@/lib/engine";
 import { recordRiskSnapshots } from "@/lib/data/risk-history";

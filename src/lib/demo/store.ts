@@ -1,10 +1,10 @@
-import "server-only";
-import { createHash, randomUUID } from "node:crypto";
+import { sha256Hex } from "@/lib/hash";
 import { wouldCreateCycle } from "@/lib/engine/graph";
 import { buildDemoDataset, DEMO_REFERENCE_DATE } from "./dataset";
 
 // In-memory stand-in for the Supabase database, used in local demo mode
-// (PROJECTPILOT_DATA_MODE=demo). It enforces the database behaviour the app relies
+// (PROJECTPILOT_DATA_MODE=demo) and, in the browser, by the static GitHub Pages
+// demo (persisted to localStorage via setDemoPersistence). It enforces the database behaviour the app relies
 // on — defaults, the task completion trigger, updated_at, unique keys, same-project
 // and acyclic dependencies, cascades — so every server action runs unchanged.
 // Single-user and process-local: it resets when the server restarts. RLS is not
@@ -18,12 +18,13 @@ export const DEMO_USER = { id: stableUuid("demo-user"), email: "demo@northwind.e
 
 /** Deterministic RFC 4122 v4-shaped UUID, so seeded ids are stable across restarts. */
 export function stableUuid(key: string) {
-  const h = createHash("sha256").update(`projectpilot-demo:${key}`).digest("hex");
+  const h = sha256Hex(`projectpilot-demo:${key}`);
   const variant = ((parseInt(h[16], 16) & 0x3) | 0x8).toString(16);
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
 const nowIso = () => new Date().toISOString();
+const randomUUID = () => globalThis.crypto.randomUUID();
 
 const DEFAULTS: Record<string, () => Row> = {
   workspaces: () => ({ is_demo: false, reference_date: null, currency: "USD", default_hourly_rate: 120, default_weekly_capacity: 32, created_at: nowIso() }),
@@ -57,8 +58,36 @@ function empty(): Tables {
 interface DemoState { tables: Tables; seeded: boolean }
 const globalStore = globalThis as unknown as { __projectpilotDemo?: DemoState };
 
+// ── Persistence and change notification (browser demo) ────────────────────────
+export interface DemoPersistence {
+  load(): Tables | null;
+  save(tables: Tables): void;
+}
+let persistence: DemoPersistence | null = null;
+const listeners = new Set<() => void>();
+let version = 0;
+
+/** Called once by the static build to keep the store in localStorage. */
+export function setDemoPersistence(p: DemoPersistence) {
+  persistence = p;
+}
+/** Persists the store and notifies subscribers; called after every write. */
+export function commitDemo() {
+  version++;
+  if (globalStore.__projectpilotDemo) persistence?.save(globalStore.__projectpilotDemo.tables);
+  listeners.forEach((l) => l());
+}
+export function subscribeDemo(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+export const demoVersion = () => version;
+
 export function demoState(): DemoState {
-  globalStore.__projectpilotDemo ??= { tables: empty(), seeded: false };
+  if (!globalStore.__projectpilotDemo) {
+    const saved = persistence?.load();
+    globalStore.__projectpilotDemo = saved ? { tables: { ...empty(), ...saved }, seeded: true } : { tables: empty(), seeded: false };
+  }
   const state = globalStore.__projectpilotDemo;
   if (!state.seeded) {
     const wsId = stableUuid("workspace");
@@ -66,6 +95,7 @@ export function demoState(): DemoState {
     state.tables.workspace_members.push({ ...DEFAULTS.workspace_members(), workspace_id: wsId, user_id: DEMO_USER.id, role: "owner" });
     seedDemoWorkspace(state.tables, wsId);
     state.seeded = true;
+    persistence?.save(state.tables);
   }
   return state;
 }

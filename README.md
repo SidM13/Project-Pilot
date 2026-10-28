@@ -17,6 +17,20 @@ npm run build && npm start         # or npm run dev
 ```
 Open http://localhost:3000 → **Open demo workspace**. The app runs on fictional, internally consistent demonstration data held in memory (labelled throughout the UI); it resets when the server restarts. Everything except multi-user accounts works in this mode.
 
+## Public demo on GitHub Pages (static)
+
+A separate static build of the demo is published at **https://sidm13.github.io/Project-Pilot/**.
+
+- Built with `npm run build:pages` (`NEXT_BUILD_TARGET=pages`): a static export under `/Project-Pilot/`. Only `*.static.tsx` route files are routes; server routes, the proxy and server actions are not in this build.
+- Data lives only in the visitor's browser (localStorage), seeded from the same demo dataset. "Reset demo data" restores it.
+- No Supabase and no Gemini: their variables are forced empty, live AI is off, and two clearly labelled pre-generated Gemini examples are shown only for the flagship scenario on unmodified data.
+- `npm run preview:pages` serves `out/` at http://localhost:4000/Project-Pilot/ for a local check.
+- `.github/workflows/pages.yml` deploys on every push to `main` after the secret scans (repository history and generated site), tests, typecheck, lint and build all pass. It uses no secrets. One-time setup: repository **Settings → Pages → Source: GitHub Actions**.
+
+## Security checks
+
+`npm run security:scan` scans tracked/untracked files and the full git history; `build:pages` also scans the generated site. Both fail on credential formats (Google/Gemini, Supabase, JWTs, database URLs with passwords, private keys, tokens), credential files (`.env*`, keys), source maps or Supabase/Gemini endpoints in the public build, and — locally — any actual `.env.local` value. Values are never printed.
+
 ## Setup (database mode)
 
 Requirements: Node 22+, a Supabase project (free tier is fine). Set `PROJECTPILOT_DATA_MODE=supabase`.

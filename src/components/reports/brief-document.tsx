@@ -19,8 +19,8 @@ import { cn } from "@/lib/utils";
 
 const late = (n: number | null) => (n == null ? "unknown" : n > 0 ? `${n} wd late` : "on time");
 
-function Section({ title, source, children }: { title: string; source: "calculated" | "ai" | "edited" | "manual"; children: React.ReactNode }) {
-  const label = { calculated: "Calculated from records", ai: "AI draft", edited: "AI draft · edited", manual: "Written by the team" }[source];
+function Section({ title, source, children }: { title: string; source: "calculated" | "ai" | "edited" | "example" | "manual"; children: React.ReactNode }) {
+  const label = { calculated: "Calculated from records", ai: "AI draft", edited: "AI draft · edited", example: "AI example · pre-generated", manual: "Written by the team" }[source];
   return (
     <section className="break-inside-avoid border-t pt-5">
       <div className="mb-2 flex items-baseline justify-between gap-4">
@@ -39,8 +39,9 @@ export function BriefDocument({ id, title, facts, narrative, aiMeta, createdAt }
   const save = useActionForm();
   const remove = useActionForm();
   const hasAi = aiMeta.status === "drafted";
-  const source = (text: string): "ai" | "edited" | "manual" => (!hasAi ? "manual" : aiMeta.edited ? "edited" : text ? "ai" : "manual");
-  const aiLabel = hasAi ? (aiMeta.edited ? "AI draft, edited" : "AI draft") : null;
+  const isExample = !!aiMeta.model?.includes("pre-generated");
+  const source = (text: string): "ai" | "edited" | "example" | "manual" => (!hasAi ? "manual" : aiMeta.edited ? "edited" : !text ? "manual" : isExample ? "example" : "ai");
+  const aiLabel = hasAi ? (aiMeta.edited ? "AI draft, edited" : isExample ? "AI example, pre-generated" : "AI draft") : null;
 
   const copy = async () => {
     try {
@@ -65,7 +66,7 @@ export function BriefDocument({ id, title, facts, narrative, aiMeta, createdAt }
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <p className="text-xs text-muted-foreground">
           Created {formatDateTime(createdAt)}
-          {hasAi && ` · narrative drafted by ${aiMeta.model}`}
+          {hasAi && (isExample ? " · narrative is a pre-generated Gemini example" : ` · narrative drafted by ${aiMeta.model}`)}
           {aiMeta.editedAt && ` · edited ${formatDateTime(aiMeta.editedAt)}`}
         </p>
         <div className="flex flex-wrap gap-2">
@@ -109,6 +110,11 @@ export function BriefDocument({ id, title, facts, narrative, aiMeta, createdAt }
         </div>
       </div>
 
+      {isExample && !aiMeta.edited && (
+        <p role="status" className="mb-6 rounded-md border border-primary/20 bg-info-soft px-3 py-2 text-xs print:hidden">
+          <span className="font-semibold text-primary">Pre-generated example.</span> The narrative sections were recorded from a live Gemini run on this exact scenario and are shown only because every figure in them still matches the calculated facts. Nothing was generated now.
+        </p>
+      )}
       {aiMeta.status === "unavailable" && (
         <p role="status" className="mb-6 rounded-md border border-warning/25 bg-warning-soft px-3 py-2 text-xs text-warning print:hidden">
           AI drafting was unavailable when this brief was created ({aiMeta.reason}). The calculated sections are complete; write the narrative with Edit.

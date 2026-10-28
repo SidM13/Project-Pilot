@@ -1,8 +1,8 @@
-import { signOut } from "@/actions/auth";
 import { isDemoMode } from "@/lib/env";
 import { getReferenceDate } from "@/lib/engine";
 import { getActiveMembership, getMemberships, getUser } from "@/lib/data/workspace";
 import { DemoBanner } from "./demo-banner";
+import { UserBlockView } from "./user-block";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 // Dynamic pieces of the app shell. Each is rendered inside <Suspense> so the
@@ -22,16 +22,5 @@ export async function ActiveDemoBanner() {
 
 export async function UserBlock() {
   const user = await getUser();
-  return (
-    <div className="flex items-center justify-between gap-2 border-t border-white/10 px-5 py-3">
-      <span className="truncate text-xs text-nav-muted" title={user?.email ?? ""}>
-        {user?.email}
-      </span>
-      <form action={signOut}>
-        <button type="submit" className="shrink-0 text-xs whitespace-nowrap text-nav-muted hover:text-nav-foreground focus-visible:outline-2 focus-visible:outline-ring">
-          Sign out
-        </button>
-      </form>
-    </div>
-  );
+  return <UserBlockView email={user?.email ?? ""} />;
 }

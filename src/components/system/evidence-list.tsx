@@ -1,14 +1,15 @@
 import Link from "next/link";
 import type { Evidence } from "@/lib/engine";
+import { projectHref } from "@/lib/routes";
 
 /** Fact rows behind a finding. Rows that point at a task or milestone link to it. */
 export function EvidenceList({ evidence, projectId, limit }: { evidence: Evidence[]; projectId?: string; limit?: number }) {
   const rows = limit ? evidence.slice(0, limit) : evidence;
   const hrefFor = (e: Evidence) => {
     if (!projectId || !e.ref) return null;
-    if (e.ref.kind === "task") return `/projects/${projectId}/tasks#task-${e.ref.id}`;
-    if (e.ref.kind === "milestone") return `/projects/${projectId}/milestones#milestone-${e.ref.id}`;
-    if (e.ref.kind === "budget") return `/projects/${projectId}/budget`;
+    if (e.ref.kind === "task") return projectHref(projectId, "tasks", `task-${e.ref.id}`);
+    if (e.ref.kind === "milestone") return projectHref(projectId, "milestones", `milestone-${e.ref.id}`);
+    if (e.ref.kind === "budget") return projectHref(projectId, "budget");
     if (e.ref.kind === "member") return `/team#member-${e.ref.id}`;
     return null;
   };

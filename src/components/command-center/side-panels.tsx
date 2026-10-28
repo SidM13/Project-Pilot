@@ -5,6 +5,7 @@ import { formatShortDate } from "@/lib/format";
 import { Panel } from "@/components/system/panel";
 import { HealthPill, Pill } from "@/components/system/status";
 import { cn } from "@/lib/utils";
+import { projectHref } from "@/lib/routes";
 
 export function PortfolioHealth({ projects }: { projects: ProjectAnalysis[] }) {
   const rows = [...projects].sort((a, b) => a.health.score - b.health.score);
@@ -13,7 +14,7 @@ export function PortfolioHealth({ projects }: { projects: ProjectAnalysis[] }) {
       <ul className="divide-y">
         {rows.map((p) => (
           <li key={p.project.id}>
-            <Link href={`/projects/${p.project.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-subtle">
+            <Link href={projectHref(p.project.id)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-subtle">
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-medium">{p.project.name}</span>
                 <span className="block text-xs text-muted-foreground">
@@ -40,7 +41,7 @@ export function UpcomingDeadlines({ analysis }: { analysis: WorkspaceAnalysis })
           {analysis.deadlines.map((d) => (
             <li key={`${d.kind}-${d.id}`}>
               <Link
-                href={d.kind === "milestone" ? `/projects/${d.projectId}/milestones#milestone-${d.id}` : `/projects/${d.projectId}/tasks#task-${d.id}`}
+                href={d.kind === "milestone" ? projectHref(d.projectId, "milestones", `milestone-${d.id}`) : projectHref(d.projectId, "tasks", `task-${d.id}`)}
                 className="flex items-start gap-3 px-4 py-2.5 hover:bg-subtle"
               >
                 <span className="tabular w-12 shrink-0 pt-px font-mono text-xs text-muted-foreground">{formatShortDate(d.dueDate)}</span>

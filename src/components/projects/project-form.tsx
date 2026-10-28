@@ -13,6 +13,7 @@ import { NativeSelect } from "@/components/system/native-select";
 import { useActionForm } from "@/components/system/use-action-form";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUSES, type Project, type TeamMember } from "@/lib/types";
 import type { ProjectInput } from "@/lib/validation";
+import { projectHref } from "@/lib/routes";
 
 type Values = { [K in keyof ProjectInput]: string };
 
@@ -45,7 +46,7 @@ function ProjectDialog({ project, members, trigger }: { project?: Project; membe
       submit(
         async () => {
           const r = await createProject(input);
-          if (r.ok && r.data) router.push(`/projects/${r.data.id}`);
+          if (r.ok && r.data) router.push(projectHref(r.data.id));
           return r;
         },
         { success: "Project created", onSuccess: () => setOpen(false) },
